@@ -1,0 +1,44 @@
+name: Windows build
+on: [push, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Godot editor and Windows export template
+        shell: pwsh
+        run: |
+          $release = "https://github.com/godotengine/godot/releases/download/4.7.2-stable"
+          $editor = "Godot_v4.7.2-stable_win64.exe.zip"
+          $templates = "Godot_v4.7.2-stable_export_templates.tpz"
+          Set-Location $env:RUNNER_TEMP
+          foreach ($asset in @($editor, $templates)) {
+            curl.exe -fsSL --retry 3 "$release/$asset" -o $asset
+            if ($LASTEXITCODE) { throw "Download failed for $asset" }
+          }
+          Expand-Archive $editor godot
+          $templateDir = "$env:APPDATA/Godot/export_templates/4.7.2.stable"
+          New-Item -ItemType Directory -Force $templateDir | Out-Null
+          tar -xf $templates
+          if ($LASTEXITCODE) { throw "Cannot extract Windows export template" }
+          Copy-Item templates/* $templateDir -Recurse
+          $editorPath = (Get-ChildItem godot -Recurse -Filter '*_console.exe' | Select-Object -First 1).FullName
+          "GODOT_EDITOR=$editorPath" >> $env:GITHUB_ENV
+      - name: Test and export
+        shell: pwsh
+        run: ./tools/build.ps1 -Godot $env:GODOT_EDITOR
+      - name: Launch packaged game on Windows
+        shell: pwsh
+        run: |
+          $p = Start-Process build/MiddleAge.exe -ArgumentList '--rendering-method','gl_compatibility','--quit-after','5','--log-file',"$env:RUNNER_TEMP/game.log" -PassThru
+          if (!$p.WaitForExit(45000)) { $p.Kill(); throw 'Game timed out' }
+          if ($p.ExitCode -ne 0) { throw "Game exited with $($p.ExitCode)" }
+          if (!(Test-Path "$env:RUNNER_TEMP/game.log")) { throw 'Missing launch log' }
+          if (Select-String "$env:RUNNER_TEMP/game.log" -Pattern 'SCRIPT ERROR|^ERROR:') { throw 'Startup log contains errors' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiddleAge-windows-x64
+          path: build/

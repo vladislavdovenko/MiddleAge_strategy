@@ -1,0 +1,31 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://main.gd" id="1"]
+
+[node name="Simulation" type="VBoxContainer"]
+offset_left = 32.0
+offset_top = 24.0
+offset_right = 604.0
+offset_bottom = 290.0
+theme_override_constants/separation = 14
+script = ExtResource("1")
+
+[node name="Title" type="Label" parent="."]
+text = "Випробування рушія · рух воза"
+
+[node name="Status" type="Label" parent="."]
+
+[node name="Distance" type="ProgressBar" parent="."]
+max_value = 600.0
+show_percentage = false
+
+[node name="Actions" type="HBoxContainer" parent="."]
+
+[node name="Pause" type="Button" parent="Actions"]
+text = "Пауза"
+
+[node name="Speed" type="Button" parent="Actions"]
+text = "Швидкість ×1"
+
+[node name="Reset" type="Button" parent="Actions"]
+text = "Спочатку"
