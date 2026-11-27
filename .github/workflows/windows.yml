@@ -33,10 +33,11 @@ jobs:
       - name: Launch packaged game on Windows
         shell: pwsh
         run: |
-          $p = Start-Process build/MiddleAge.exe -ArgumentList '--rendering-method','gl_compatibility','--quit-after','5','--log-file',"$env:RUNNER_TEMP/game.log" -PassThru
+          $p = Start-Process build/MiddleAge.exe -ArgumentList '--audio-driver','Dummy','--rendering-method','gl_compatibility','--quit-after','5','--log-file',"$env:RUNNER_TEMP/game.log" -PassThru
           if (!$p.WaitForExit(45000)) { $p.Kill(); throw 'Game timed out' }
           if ($p.ExitCode -ne 0) { throw "Game exited with $($p.ExitCode)" }
           if (!(Test-Path "$env:RUNNER_TEMP/game.log")) { throw 'Missing launch log' }
+          Get-Content "$env:RUNNER_TEMP/game.log"
           if (Select-String "$env:RUNNER_TEMP/game.log" -Pattern 'SCRIPT ERROR|^ERROR:') { throw 'Startup log contains errors' }
       - uses: actions/upload-artifact@v4
         with:
