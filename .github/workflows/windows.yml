@@ -30,6 +30,15 @@ jobs:
       - name: Test and export
         shell: pwsh
         run: ./tools/build.ps1 -Godot $env:GODOT_EDITOR
+      - name: Verify interactive map and capture close view
+        shell: pwsh
+        run: |
+          & $env:GODOT_EDITOR --audio-driver Dummy --script res://tests/map_checks.gd -- --preview
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path map-preview.png)) { throw "Map preview test failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: map-preview
+          path: map-preview.png
       - name: Launch packaged game on Windows
         shell: pwsh
         run: |
@@ -41,5 +50,5 @@ jobs:
           if (Select-String "$env:RUNNER_TEMP/game.log" -Pattern 'SCRIPT ERROR|^ERROR:') { throw 'Startup log contains errors' }
       - uses: actions/upload-artifact@v4
         with:
-          name: MiddleAge-windows-x64
+          name: MiddleAge-stage2-windows-x64
           path: build/
