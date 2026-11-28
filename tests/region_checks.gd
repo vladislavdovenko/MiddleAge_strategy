@@ -40,6 +40,12 @@ func _initialize() -> void:
 	check(m.trades>0,"goods actually delivered")
 	for t in g.towns:
 		for v in t.stocks.values(): check(v>=0,"inventory nonnegative")
+	var saved:=m.snapshot()
+	for step in 90: m.advance()
+	var expected:=m.snapshot()
+	check(m.restore(saved),"load trade in progress")
+	for step in 90: m.advance()
+	check(expected==m.snapshot(),"saved cargo, news and motion resume deterministically")
 	# An unseen closure stays local; a first-hand report passes at a meeting.
 	var remote: Dictionary=m.carts[0]
 	var witness: Dictionary=m.carts[1]

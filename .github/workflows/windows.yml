@@ -39,6 +39,15 @@ jobs:
         with:
           name: map-preview
           path: map-preview.png
+      - name: Capture generated county
+        shell: pwsh
+        run: |
+          & $env:GODOT_EDITOR --audio-driver Dummy --script res://tests/region_preview.gd
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path region-preview.png)) { throw "County preview failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: region-preview
+          path: region-preview.png
       - name: Launch packaged game on Windows
         shell: pwsh
         run: |

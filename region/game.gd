@@ -108,6 +108,8 @@ func _ready() -> void:
 		editor.visible=not editor.visible
 		editor.choose(null)
 		if not editor.visible: rebuild_obstacles())
+	button("Зберегти",save_market)
+	button("Відновити",load_market)
 	button("Полігон феодала",func(): get_tree().change_scene_to_file("res://main.tscn"))
 	notice="Наведіть на поселення · клацніть міст, щоб змінити стан"
 	ready_map=true
@@ -229,3 +231,24 @@ func _process(dt: float) -> void:
 			card.text="Купець із %s · %s\nВантаж: %s %d" % [geo.towns[c.home].name,c.status,geo.rules.goods.get(c.good,"—"),c.load]
 			card.show()
 			return
+
+func save_market() -> void:
+	var target: String="user://trade-"+geo.fingerprint+".save"
+	var f:=FileAccess.open(target+".tmp",FileAccess.WRITE)
+	if f==null:
+		notice="Не вдалося відкрити файл запису"
+		return
+	f.store_var(market.snapshot())
+	f.flush()
+	var err:=f.get_error()
+	f.close()
+	if err==OK: err=DirAccess.rename_absolute(target+".tmp",target)
+	notice="Партію збережено" if err==OK else "Помилка запису партії"
+
+func load_market() -> void:
+	var f:=FileAccess.open("user://trade-"+geo.fingerprint+".save",FileAccess.READ)
+	if f!=null and market.restore(f.get_var()):
+		debt=0
+		features.queue_redraw()
+		notice="Торгівлю відновлено"
+	else: notice="Для цієї карти немає придатного збереження"

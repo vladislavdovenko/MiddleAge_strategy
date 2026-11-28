@@ -156,3 +156,37 @@ func toggle(p: Vector2i) -> bool:
 	b.open=not b.open
 	b.version+=1
 	return true
+
+func snapshot() -> Dictionary:
+	var ledgers: Array=[]
+	for town in geo.towns: ledgers.append({"stocks":town.stocks.duplicate(),"deliveries":town.deliveries})
+	return {"map":geo.fingerprint,"generator":rules.generator,"time":time,"ledgers":ledgers,"gates":geo.bridges.duplicate(true),"carts":carts.duplicate(true),"trades":trades,"exchanges":exchanges}
+
+func restore(data: Variant) -> bool:
+	if not data is Dictionary or data.get("map")!=geo.fingerprint or data.get("generator")!=rules.generator: return false
+	if not data.get("time") is int or data.time<0 or not data.get("trades") is int or not data.get("exchanges") is int: return false
+	if not data.get("ledgers") is Array or data.ledgers.size()!=geo.towns.size(): return false
+	if not data.get("carts") is Array or data.carts.size()!=carts.size() or not data.get("gates") is Dictionary: return false
+	for row in data.ledgers:
+		if not row is Dictionary or not row.get("stocks") is Dictionary or not row.get("deliveries") is int: return false
+		for good in rules.goods:
+			if typeof(row.stocks.get(good)) not in [TYPE_FLOAT,TYPE_INT] or row.stocks[good]<0: return false
+	for c in data.carts:
+		if not c is Dictionary: return false
+		for key in carts[0]:
+			if not c.has(key): return false
+		if not c.p is Vector2 or not c.path is PackedInt64Array or not c.reports is Dictionary: return false
+		if c.at<0 or c.at>=geo.towns.size() or c.dest< -1 or c.dest>=geo.towns.size() or not geo.graph.has_point(c.node): return false
+		for id in c.path:
+			if not geo.graph.has_point(id): return false
+	for p in geo.bridges:
+		if not data.gates.get(p) is Dictionary or not data.gates[p].get("open") is bool or not data.gates[p].get("version") is int: return false
+	for i in geo.towns.size():
+		geo.towns[i].stocks=data.ledgers[i].stocks.duplicate()
+		geo.towns[i].deliveries=data.ledgers[i].deliveries
+	geo.bridges=data.gates.duplicate(true)
+	carts.assign(data.carts.duplicate(true))
+	time=data.time
+	trades=data.trades
+	exchanges=data.exchanges
+	return true
