@@ -51,7 +51,9 @@ func dispatch(cart: Dictionary) -> void:
 			best=score
 			candidate={"dest":i,"good":good,"amount":amount,"route":route}
 	if candidate.is_empty(): candidate=delayed
-	if candidate.is_empty(): return
+	if candidate.is_empty():
+		seek_cargo(cart)
+		return
 	cart.dest=candidate.dest
 	cart.good=candidate.good
 	cart.load=candidate.amount
@@ -59,6 +61,42 @@ func dispatch(cart: Dictionary) -> void:
 	cart.path=candidate.route
 	cart.next=1
 	cart.status="Очікує звісток" if cart.path.is_empty() else "До "+str(geo.towns[cart.dest].name)
+
+# Empty carts can fetch goods at a different market. Discount supply already
+# claimed by empty carts heading there and stop reserving it on arrival.
+func seek_cargo(cart: Dictionary) -> void:
+	var best:=0.0
+	var route:=PackedInt64Array()
+	var source:=-1
+	for i in geo.towns.size():
+		if i==cart.at: continue
+		var seller:Dictionary=geo.towns[i]
+		var claims:=0
+		for other in carts:
+			if other.dest==i and other.good=="": claims+=1
+		var volume:=0.0
+		for good in rules.goods:
+			var spare:float=seller.stocks[good]-2*seller.demand[good]
+			if spare<=0: continue
+			var outstanding:=0.0
+			for buyer in geo.towns:
+				if buyer==seller: continue
+				outstanding+=maxf(0,5*buyer.demand[good]-buyer.stocks[good])
+			volume+=minf(spare,outstanding)
+		var score:=minf(float(rules.capacity),volume-claims*float(rules.capacity))/maxf(1,cart.p.distance_to(geo.pos(seller.p)))
+		if score<=best: continue
+		var path:=journey(cart,geo.idx(seller.p))
+		if path.size()<2: continue
+		best=score
+		source=i
+		route=path
+	if source>=0:
+		cart.dest=source
+		cart.good=""
+		cart.load=0.0
+		cart.path=route
+		cart.next=1
+		cart.status="По товар до "+str(geo.towns[source].name)
 
 func economy() -> void:
 	for t in geo.towns:
@@ -183,7 +221,9 @@ func advance() -> void:
 		if cart.dest<0: continue
 		if time%12==0: call_guard(cart)
 		if cart.path.is_empty():
-			if time>=cart.recheck: scout(cart)
+			if time>=cart.recheck:
+				reroute(cart)
+				if cart.path.is_empty(): scout(cart)
 			continue
 		var travel: float=rules.speed
 		while travel>0 and cart.next<cart.path.size():
@@ -222,9 +262,10 @@ func advance() -> void:
 					reroute(cart)
 				continue
 			var t: Dictionary=geo.towns[cart.dest]
-			t.stocks[cart.good]+=cart.load
-			t.deliveries+=1
-			trades+=1
+			if cart.good!="" and cart.load>0:
+				t.stocks[cart.good]+=cart.load
+				t.deliveries+=1
+				trades+=1
 			cart.at=cart.dest
 			cart.dest=-1
 			cart.load=0.0

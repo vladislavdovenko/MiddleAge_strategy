@@ -32,6 +32,10 @@ func travel(actor: Dictionary,id: int,mode: String) -> bool:
 	if path.is_empty(): return false
 	actor.path=path
 	actor.step=0
+	if path.size()>1:
+		var start:Vector2=geo.location(path[0])
+		var next:Vector2=geo.location(path[1])
+		if Geometry2D.get_closest_point_to_segment(actor.p,start,next).distance_to(actor.p)<0.1: actor.step=1
 	actor.mode=mode
 	return true
 
@@ -83,6 +87,20 @@ func choose_road(b: Dictionary) -> bool:
 	b.cover=cover
 	return travel(b,cover,"woods")
 
+func patrol(guard: Dictionary,now: int) -> void:
+	var towns:Array=geo.towns.duplicate()
+	var home:Vector2=geo.location(guard.home)
+	towns.sort_custom(func(a,b): return home.distance_squared_to(geo.pos(a.p))<home.distance_squared_to(geo.pos(b.p)))
+	var count:=mini(3,towns.size())
+	var cursor:int=guard.get("patrol_cursor",0)
+	for offset in count:
+		var index: int=(cursor+offset)%count
+		var id:int=geo.idx(towns[index].p)
+		if id!=guard.node and travel(guard,id,"patrol"):
+			guard.patrol_cursor=index+1
+			return
+	guard.until=now+120
+
 func tick(now: int,phase: int) -> void:
 	var m=market.get_ref()
 	for b in bands:
@@ -114,7 +132,9 @@ func tick(now: int,phase: int) -> void:
 				"investigate": guard.mode="search"; guard.until=now+90
 				"search":
 					if now>=guard.until: travel(guard,guard.home,"return")
-				"return": guard.mode="camp"; guard.target=-1
+				"patrol":
+					if not travel(guard,guard.home,"return"): guard.mode="stranded"
+				"return": guard.mode="camp"; guard.target=-1; guard.until=now+90
 				"stranded":
 					if now%60==0: travel(guard,guard.home,"return")
 		if guard.mode=="camp":
@@ -122,6 +142,7 @@ func tick(now: int,phase: int) -> void:
 				var record:Dictionary=guard.mail[key]
 				m.remember(guard,key,record.node,record.seen)
 			guard.mail.clear()
+			if now>=guard.until: patrol(guard,now)
 	if now%4!=0: return
 	for i in bands.size():
 		var b:=bands[i]
@@ -159,7 +180,7 @@ func tick(now: int,phase: int) -> void:
 				newest=fact.seen
 				spot=fact.node
 				who=key
-		if spot>=0 and travel(guard,spot,"investigate"):
+		if spot>=0 and ((guard.mode=="investigate" and guard.target==spot) or travel(guard,spot,"investigate")):
 			guard.handled[who]=newest
 			guard.target=spot
 	if now%900==0:

@@ -34,6 +34,9 @@ func button(title: String,cb: Callable) -> Button:
 	b.pressed.connect(cb)
 	return b
 
+func map_file() -> String:
+	return ProjectSettings.globalize_path("res://region/world.png") if OS.has_feature("editor") else OS.get_executable_path().get_base_dir().path_join("world.png")
+
 func _ready() -> void:
 	var ui:=CanvasLayer.new()
 	add_child(ui)
@@ -47,7 +50,7 @@ func _ready() -> void:
 	status.add_theme_stylebox_override("normal",box())
 	card.hide()
 	editor.hide()
-	var file: String=ProjectSettings.globalize_path("res://region/world.png") if OS.has_feature("editor") else OS.get_executable_path().get_base_dir().path_join("world.png")
+	var file:=map_file()
 	var img:=Image.load_from_file(file)
 	if img==null or img.is_empty():
 		status.text="Покладіть world.png поруч із програмою і відкрийте її знову."
@@ -232,7 +235,7 @@ func _process(dt: float) -> void:
 	for group in [[market.watch.guards,"Варта"],[market.watch.bands,"Розбійники"],[market.carts,"Купець"]]:
 		for unit: Dictionary in group[0]:
 			if unit.get("mode","")=="gone" or p.distance_to(unit.p)>maxf(25,8/cam.zoom.x): continue
-			var modes={"camp":"у таборі","woods":"прямує до лісу","approach":"виходить до дороги","ambush":"у засідці","escape":"відступає до лісу","hidden":"переховується","search":"оглядає місце","investigate":"прямує до останнього місця спостереження","return":"повертається","stranded":"очікує переправи"}
+			var modes={"patrol":"патрулює шлях до поселення","camp":"у таборі","woods":"прямує до лісу","approach":"виходить до дороги","ambush":"у засідці","escape":"відступає до лісу","hidden":"переховується","search":"оглядає місце","investigate":"прямує до останнього місця спостереження","return":"повертається","stranded":"очікує переправи"}
 			card.text="%s · %s" % [group[1],modes.get(unit.get("mode",""),unit.get("status",""))]
 			if unit.has("good"): card.text+=" · %s %d" % [geo.rules.goods.get(unit.good,"без вантажу"),unit.load]
 			for key in unit.memory:
