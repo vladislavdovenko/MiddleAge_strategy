@@ -81,6 +81,21 @@ func generate(img: Image, config: Dictionary) -> void:
 	if towns.is_empty():
 		error="Позначте на карті принаймні одне поселення."
 		return
+	# A coarse miniature can omit all ore and field markers. Explicit marks
+	# take precedence and suppress automatic deposits of the same material.
+	var hills: Array=[]
+	for p in land:
+		if land[p]=="mountain": hills.append(p)
+	for good in ["stone","copper","iron","coal"]:
+		if hills.is_empty() or sources.any(func(site): return site.good==good): continue
+		var i:=rng.randi_range(0,hills.size()-1)
+		sources.append({"p":hills[i],"good":good})
+		hills.remove_at(i)
+	if not sources.any(func(site): return site.good=="grain"):
+		for town in towns:
+			var field=nearest_kind(town.p,"meadow")
+			if field!=null and not sources.any(func(site): return site.p==field):
+				sources.append({"p":field,"good":"grain"})
 	for p: Vector2i in road_cells:
 		node(p)
 		for delta in [Vector2i.RIGHT,Vector2i.DOWN,Vector2i(1,1),Vector2i(-1,1)]:

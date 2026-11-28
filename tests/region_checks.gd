@@ -40,4 +40,28 @@ func _initialize() -> void:
 	check(m.trades>0,"goods actually delivered")
 	for t in g.towns:
 		for v in t.stocks.values(): check(v>=0,"inventory nonnegative")
+	# An unseen closure stays local; a first-hand report passes at a meeting.
+	var remote: Dictionary=m.carts[0]
+	var witness: Dictionary=m.carts[1]
+	var contact: Dictionary=m.carts[2]
+	var gate: Vector2i=keys[0]
+	for cart in [remote,witness,contact]:
+		cart.dest=-1
+		cart.path=PackedInt64Array()
+		cart.reports.clear()
+	remote.p=Vector2(60,60)
+	contact.p=Vector2(65,60)
+	witness.p=g.pos(gate)
+	g.bridges[gate]={"open":false,"version":7}
+	m.advance()
+	check(witness.reports[gate].version==7 and not remote.reports.has(gate),"discovery stays local")
+	witness.p=Vector2(70,60)
+	m.advance()
+	check(remote.reports[gate].version==7 and contact.reports[gate].version==7,"news travels at meetings")
+	witness.p=g.pos(gate)
+	g.bridges[gate]={"open":true,"version":8}
+	m.advance()
+	check(witness.reports[gate].open and not remote.reports[gate].open,"reopening also needs observation")
+	m.news(witness,gate,{"open":false,"version":7})
+	check(witness.reports[gate].open,"stale closure cannot override reopening")
 	quit(1 if failed else 0)
