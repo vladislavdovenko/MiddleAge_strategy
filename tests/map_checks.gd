@@ -165,6 +165,17 @@ func run() -> void:
 	new_tree.position = Vector2(1450,670)
 	ui.set_zoom(false,new_tree.position)
 	if "--preview" in OS.get_cmdline_user_args():
+		var old_time: int = ui.world.time_seconds
+		var tones: Array[Color] = []
+		for phase in 4:
+			ui.world.time_seconds = phase*21600
+			ui._refresh()
+			var frame := await crop_at(ui,new_tree.position)
+			tones.append(frame.get_pixel(3,3))
+		for i in tones.size():
+			for j in i: check(tones[i]!=tones[j],"four distinct rendered lighting filters")
+		ui.world.time_seconds = old_time
+		ui._refresh()
 		for side in [-1,1]:
 			ui.world.groups["lord"].position = new_tree.position+Vector2(-47,4)
 			ui.world.groups["cart-01"].position = new_tree.position+Vector2(0,4*side)
