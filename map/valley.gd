@@ -4,49 +4,51 @@ const DATA_PATH := "res://data/valley.json"
 var data: Dictionary
 var regions: Array[Dictionary] = []
 var bounds: Rect2
-var river := PackedVector2Array()
-var left := PackedVector2Array()
-var right := PackedVector2Array()
-var bridge: Rect2
-var bridge_open := true
-var road_y: float
+var waterways: Array = []
+var roads: Array = []
+var crossings := {}
+var gates := {}
 var anchors := PackedVector2Array()
+var boundaries: Array[PackedVector2Array] = []
 
 static func point(pair: Array) -> Vector2:
-	return Vector2(pair[0], pair[1])
+	return Vector2(pair[0],pair[1])
 
 func _init() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string(DATA_PATH))
 	bounds = Rect2(Vector2.ZERO, point(data.size))
-	for region_file in data.regions:
-		var region: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(region_file))
-		regions.append(region)
-	road_y = data.bridge_y
-	for pair in data.river_left:
-		var p := point(pair)
-		left.append(p)
-		right.append(p + Vector2.RIGHT * float(data.river_width))
-	river.append_array(left)
-	var reverse := right.duplicate()
-	reverse.reverse()
-	river.append_array(reverse)
-	var x := bank_x(road_y)
-	bridge = Rect2(x, road_y - data.bridge_half_height, data.river_width, 2 * data.bridge_half_height)
-	for i in left.size():
-		anchors.append(left[i] + Vector2.LEFT)
-		anchors.append(right[i] + Vector2.RIGHT)
-	for edge in [-1, 0, 1]:
-		var y: float = road_y + edge * float(data.road_half_height)
-		anchors.append(Vector2(x, y))
-		anchors.append(Vector2(bridge.end.x, y))
+	for file in data.regions:
+		regions.append(JSON.parse_string(FileAccess.get_file_as_string(file)))
+	for water in data.waterways:
+		var poly := PackedVector2Array()
+		for p in water.banks[0]: poly.append(point(p))
+		for i in range(water.banks[1].size()-1,-1,-1): poly.append(point(water.banks[1][i]))
+		waterways.append(poly)
+		boundaries.append(poly)
+		for p in water.banks[0]: anchors.append(point(p)+Vector2.LEFT)
+		for p in water.banks[1]: anchors.append(point(p)+Vector2.RIGHT)
+	for road in data.roads:
+		for i in range(1,road.points.size()):
+			var a := point(road.points[i-1])
+			var b := point(road.points[i])
+			var normal := (b-a).normalized().orthogonal()*float(road.width)*0.5
+			var strip := PackedVector2Array([a+normal,b+normal,b-normal,a-normal])
+			roads.append(strip)
+			boundaries.append(strip)
+			anchors.append(a)
+			anchors.append(b)
+	for c in data.crossings:
+		var r := Rect2(c.rect[0],c.rect[1],c.rect[2],c.rect[3])
+		crossings[c.id] = r
+		gates[c.id] = c.open
+		boundaries.append(PackedVector2Array([r.position,Vector2(r.end.x,r.position.y),r.end,Vector2(r.position.x,r.end.y)]))
+		for side in [-1,1]:
+			anchors.append(r.get_center()+Vector2(side*(r.size.x/2+3),0))
 
-func bank_x(y: float) -> float:
-	for i in range(1, left.size()):
-		if y <= left[i].y:
-			var a := left[i-1]
-			var b := left[i]
-			return lerpf(a.x, b.x, (y-a.y)/(b.y-a.y))
-	return left[-1].x
+func set_gate(id: String, opened: bool) -> void:
+	if gates.has(id):
+		gates[id] = opened
+		graph = null
 
 func region_at(p: Vector2) -> String:
 	for region in regions:
@@ -73,7 +75,8 @@ func terrain_at(p: Vector2) -> String:
 		if f < slowest:
 			slowest = f
 			kind = k
-	if absf(p.y-road_y)<=float(data.road_half_height): return "road"
+	for strip: PackedVector2Array in roads:
+		if Geometry2D.is_point_in_polygon(p,strip): return "road"
 	return "mountain_forest" if mountain and forest else kind
 
 func factor_at(p: Vector2) -> float:
@@ -85,25 +88,19 @@ func factor_at(p: Vector2) -> float:
 func walkable(p: Vector2) -> bool:
 	if not bounds.has_point(p) or factor_at(p)<=0:
 		return false
-	var x := bank_x(p.y)
-	if p.x <= x + 0.0001 or p.x >= x + float(data.river_width) - 0.0001:
-		return true
-	return bridge_open and absf(p.y-road_y) <= float(data.bridge_half_height)
+	for polygon: PackedVector2Array in waterways:
+		if Geometry2D.is_point_in_polygon(p,polygon):
+			for id in crossings:
+				if gates[id] and crossings[id].has_point(p): return true
+			return false
+	return true
 
-# Split at every linear bank bend, bank intersection, bridge boundary and road edge.
-# Inside each resulting interval both surface and passability are constant.
 func cuts(a: Vector2, b: Vector2) -> Array[float]:
 	var ts: Array[float] = [0.0,1.0]
 	var delta := b-a
-	if absf(delta.y) > 0.00001:
-		var levels: Array = [bridge.position.y, bridge.end.y, road_y-data.road_half_height, road_y+data.road_half_height]
-		for v in left: levels.append(v.y)
-		for y: float in levels:
-			var t: float = (y-a.y)/delta.y
-			if t>0 and t<1: ts.append(t)
-	for bank in [left,right]:
-		for i in range(1,bank.size()):
-			var hit = Geometry2D.segment_intersects_segment(a,b,bank[i-1],bank[i])
+	for polygon in boundaries:
+		for i in polygon.size():
+			var hit = Geometry2D.segment_intersects_segment(a,b,polygon[i-1],polygon[i])
 			if hit != null and delta.length_squared()>0:
 				ts.append(clampf((Vector2(hit)-a).dot(delta)/delta.length_squared(),0,1))
 	for zone in data.zones:
@@ -138,7 +135,6 @@ class TravelGraph extends AStar2D:
 		return 0.0
 
 var graph: TravelGraph
-var cached_open := true
 
 func connect_if_clear(g: TravelGraph, i: int,j: int) -> void:
 	var cost := edge_cost(g.get_point_position(i),g.get_point_position(j))
@@ -151,9 +147,7 @@ func rebuild_graph() -> void:
 	for zone in data.zones:
 		var r := zone_rect(zone).grow(0.25)
 		nodes.append_array(PackedVector2Array([r.position,r.end,Vector2(r.end.x,r.position.y),Vector2(r.position.x,r.end.y)]))
-	for x in [1,109,845,960,1440,1919]: nodes.append(Vector2(x,road_y))
 	graph = TravelGraph.new()
-	cached_open = bridge_open
 	for i in nodes.size(): graph.add_point(i+2,nodes[i])
 	for i in nodes.size():
 		for j in range(i+1,nodes.size()): connect_if_clear(graph,i+2,j+2)
@@ -161,7 +155,7 @@ func rebuild_graph() -> void:
 func route(a: Vector2,b: Vector2,speed: float) -> Dictionary:
 	if speed <= 0 or not walkable(a) or not walkable(b): return {}
 	if a.is_equal_approx(b): return {"points":PackedVector2Array([a]),"times":PackedFloat64Array([0])}
-	if graph == null or cached_open != bridge_open: rebuild_graph()
+	if graph == null: rebuild_graph()
 	var g := graph
 	for id in [0,1]:
 		if g.has_point(id): g.remove_point(id)

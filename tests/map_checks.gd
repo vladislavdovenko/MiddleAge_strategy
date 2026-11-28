@@ -29,10 +29,13 @@ func run() -> void:
 	for i in range(1,curved.points.size()):
 		for k in 21:
 			check(v.walkable(curved.points[i-1].lerp(curved.points[i],k/20.0)),"route stays on land or deck")
-	v.bridge_open = false
+	v.set_gate("mill",false)
+	var alternate := v.route(a,b,2)
+	check(not alternate.is_empty() and alternate.times[-1]>road.times[-1],"southern crossing detour")
+	v.set_gate("south",false)
 	check(v.route(a,b,2).is_empty(),"closed crossing")
 	check(not v.route(a,Vector2(240,380),2).is_empty(),"same bank still reachable")
-	v.bridge_open = true
+	v.set_gate("mill",true)
 	ui.order(b)
 	var previous = ui.group
 	ui.world.advance(220)
@@ -46,15 +49,19 @@ func run() -> void:
 	ui._process(9)
 	check(ui.world.time_seconds==clock,"paused clock")
 	ui.get_node("Bar/Pause").pressed.emit()
-	ui._bridge()
-	check(not v.bridge_open,"toggle closure")
-	ui.order(a)
+	ui.campaign.toggle_gate("mill")
+	check(not v.gates.mill,"toggle closure")
+	ui.order(Vector2(810,380))
 	check("недоступна" in ui.notice,"unreachable click gives feedback")
-	ui._bridge()
+	ui.campaign.toggle_gate("mill")
 	ui.order(a)
-	ui._bridge()
-	check(not ui.group.moving,"closure stops outstanding cross-bank order")
-	ui._bridge()
+	ui.campaign.toggle_gate("mill")
+	check(ui.group.moving,"unseen closure does not cancel a distant order")
+	ui.group.position = Vector2(535,265)
+	ui.campaign.reports["lord"]["south"] = false
+	ui.campaign.update_routes()
+	check(not ui.group.moving,"locally observed closure stops blocked order")
+	ui.campaign.toggle_gate("mill")
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.pressed = true
@@ -65,6 +72,54 @@ func run() -> void:
 	ui.world.advance(6500-ui.world.time_seconds)
 	ui._refresh()
 	check("07:48:20" in ui.get_node("Bar/Clock").text,"clock at 6500 seconds")
+	var campaign = ui.campaign
+	var sight = campaign.sight
+	var grass := Vector2(1500,710)
+	check(sight.radius(grass,1)>sight.radius(grass,3),"night sight contracts")
+	check(sight.radius(Vector2(245,150),1)<sight.radius(grass,1),"forest sight")
+	check(sight.height(Vector2(820,825))>sight.height(grass) and sight.radius(Vector2(1070,380),1)>sight.radius(grass,1),"elevation improves range")
+	check(sight.radius(Vector2(820,825),1)==sight.radius(Vector2(245,150),1),"forest cap also applies on hilltop")
+	check(not sight.clear_line(Vector2(1030,380),Vector2(1110,380)),"crest blocks line between opposite slopes")
+	var backups: Array = sight.obstacles.duplicate()
+	sight.obstacles = [[grass+Vector2(15,0),5.0,12.0]]
+	check(not sight.sees(grass,grass+Vector2(30,0),1),"object interrupts sight")
+	sight.obstacles = backups
+	var saved = campaign.snapshot()
+	var lord = ui.world.groups["lord"]
+	lord.position = v.crossings.mill.get_center()+Vector2(-15,0)
+	campaign.observe()
+	check(campaign.live.has("mill"),"bridge visible nearby")
+	lord.position = grass
+	campaign.observe()
+	v.set_gate("mill",false)
+	campaign.observe()
+	check(not campaign.live.has("mill") and campaign.knowledge.mill.state,"bridge report remains stale")
+	lord.position = v.crossings.mill.get_center()+Vector2(-15,0)
+	campaign.observe()
+	check(not campaign.knowledge.mill.state,"bridge state reacquired")
+	check(campaign.restore(saved),"restore campaign")
+	lord.position = Vector2(140,265)
+	ui.world.groups["courier"].position = lord.position
+	ui.world.groups["cart-01"].position = Vector2(270,265)
+	campaign.observe()
+	check(campaign.issue_cart(Vector2(375,265)) and not campaign.pending.is_empty(),"send messenger")
+	campaign.advance(3)
+	var travelling = campaign.snapshot()
+	campaign.advance(120)
+	var finish = campaign.snapshot()
+	check(campaign.pending.is_empty() and ui.world.groups["cart-01"].position.distance_to(Vector2(375,265))<1,"order delivered")
+	check(campaign.restore(travelling),"restore en route")
+	campaign.advance(120)
+	check(campaign.snapshot()==finish,"restored campaign follows same timeline")
+	check("вирушив" in campaign.order_feedback,"courier reports accepted route")
+	check(campaign.restore(travelling),"restore outbound courier for failed delivery")
+	# A free point in the middle of the river has no wagon route.
+	campaign.pending.target = Vector2(480,100)
+	var before_refusal: Vector2 = ui.world.groups["cart-01"].position
+	campaign.advance(120)
+	check(campaign.pending.is_empty() and "не знайшов" in campaign.order_feedback,"courier returns failure to lord")
+	check(before_refusal==ui.world.groups["cart-01"].position,"failed destination does not move cart")
+	campaign.restore(saved)
 	var editor = ui.get_node("Tools")
 	ui.get_node("Bar/Editor").button_pressed = true
 	var t_before: int = ui.world.time_seconds
@@ -85,7 +140,7 @@ func run() -> void:
 	editor.brush.select(1)
 	editor.handle(event,Vector2(1440,620))
 	editor.handle(event,Vector2(1480,665))
-	check(v.data.zones.size()==start_count+1 and v.terrain_at(Vector2(1460,640))=="forest","paint terrain")
+	check(v.data.zones.size()==start_count+1 and v.terrain_at(Vector2(1460,655))=="forest","paint terrain")
 	var tmp := "user://editor-test-%s.json" % OS.get_process_id()
 	check(ui.objects.save_layout(tmp)==OK and ui.objects.save_layout(tmp)==OK,"save and replace")
 	var restored = ui.Objects.new()
@@ -94,7 +149,7 @@ func run() -> void:
 	check(loaded.position==new_tree.position and loaded.flip_h and loaded.flip_v and loaded.z_index==10 and loaded.scale==new_tree.scale,"reload exact placement")
 	check(restored.map_data.zones.size()==start_count+1,"persist painted surface")
 	editor.brush.select(editor.brush.item_count-1)
-	editor.handle(event,Vector2(1460,640))
+	editor.handle(event,Vector2(1460,655))
 	check(v.data.zones.size()==start_count,"erase terrain")
 	editor.brush.select(0)
 	restored.free()
@@ -119,8 +174,20 @@ func run() -> void:
 	new_tree.position = Vector2(1450,670)
 	ui.set_zoom(false,new_tree.position)
 	if "--preview" in OS.get_cmdline_user_args():
+		var old_time: int = ui.world.time_seconds
+		var tones: Array[Color] = []
+		for phase in 4:
+			ui.world.time_seconds = phase*21600
+			ui._refresh()
+			var frame := await crop_at(ui,new_tree.position)
+			tones.append(frame.get_pixel(3,3))
+		for i in tones.size():
+			for j in i: check(tones[i]!=tones[j],"four distinct rendered lighting filters")
+		ui.world.time_seconds = old_time
+		ui._refresh()
 		for side in [-1,1]:
-			ui.group.position = new_tree.position+Vector2(0,4*side)
+			ui.world.groups["lord"].position = new_tree.position+Vector2(-47,4)
+			ui.world.groups["cart-01"].position = new_tree.position+Vector2(0,4*side)
 			ui._refresh()
 			await process_frame
 			var natural := await crop_at(ui,new_tree.position)
