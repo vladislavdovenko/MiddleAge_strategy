@@ -39,7 +39,11 @@ func send_to(id: String,destination: Vector2) -> bool:
 	var g: World.Group = world.groups[id]
 	var route: Dictionary = map.route(g.position,destination,g.speed_mps)
 	if route.is_empty(): return false
-	return world.follow_route(id,route.points,route.times)
+	var success: bool = world.follow_route(id,route.points,route.times)
+	if success and id==config.lord and pending.is_empty():
+		var follower: World.Group = world.groups[config.courier]
+		if follower.position.distance_to(g.position)<=config.message_range: send_to(config.courier,destination)
+	return success
 
 func issue_cart(destination: Vector2) -> bool:
 	var lord: Vector2 = world.groups[config.lord].position
@@ -58,6 +62,8 @@ func issue_cart(destination: Vector2) -> bool:
 func advance(seconds: int) -> void:
 	for i in seconds:
 		world.advance(1)
+		for change in config.get("events",[]):
+			if world.time_seconds==change.time and map.gates[change.gate]!=change.open: toggle_gate(change.gate)
 		observe()
 		if pending.is_empty(): continue
 		var messenger: World.Group = world.groups[config.courier]

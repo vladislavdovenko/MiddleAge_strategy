@@ -161,7 +161,7 @@ func _ready() -> void:
 	$Bar/Pause.pressed.connect(_pause)
 	$Bar/Speed.pressed.connect(_rate)
 	$Bar/Bridge.pressed.connect(_bridge)
-	$Bar/Zoom.pressed.connect(func(): set_zoom(not detail,group.position))
+	$Bar/Zoom.pressed.connect(func(): set_zoom(not detail,group.position if campaign.live.has(focus_id) else camera.position))
 	$Bar/Demo.text = "До переправи"
 	$Bar/Demo.pressed.connect(func(): order(valley.crossings["mill"].get_center()))
 	$Frame.gui_input.connect(_map_input)
@@ -176,7 +176,9 @@ func _ready() -> void:
 func _edit_mode(active: bool) -> void:
 	$Tools.visible = active
 	$Tools.first_corner = Vector2.INF
-	$Tools.occupied = group.position
+	$Tools.occupied = world.groups["lord"].position
+	$Tools.occupied_points.clear()
+	for g in world.groups.values(): $Tools.occupied_points.append(g.position)
 	commands.visible = not active
 	campaign.sight.rebuild_objects(objects.sprites)
 	last_fog = Vector2.INF
@@ -225,7 +227,7 @@ func _map_input(event: InputEvent) -> void:
 
 func order(target: Vector2) -> bool:
 	var ok := campaign.issue_cart(target) if action=="order" else campaign.send_to(focus_id,target)
-	notice = ("Наказ прийнято" if ok else "Наказ недоступний: перевірте маршрут і присутність посильного")
+	notice = ("Наказ прийнято" if ok else "Ця точка недоступна або посильний далеко")
 	_refresh()
 	return ok
 

@@ -4,6 +4,7 @@ signal surfaces_changed
 var brush := OptionButton.new()
 var first_corner := Vector2.INF
 var occupied := Vector2.INF
+var occupied_points := PackedVector2Array()
 signal feedback(message: String)
 const Objects = preload("res://map/objects.gd")
 var objects: Objects
@@ -171,8 +172,10 @@ func handle(event: InputEvent, pos: Vector2) -> bool:
 			var r := Rect2(first_corner,pos-first_corner).abs()
 			first_corner = Vector2.INF
 			if r.size.x < 2 or r.size.y < 2: return true
-			if objects.map_data.surfaces[kind].factor == 0 and r.has_point(occupied):
-				feedback.emit("Спершу відведіть віз із цієї ділянки")
+			var occupied_area := r.has_point(occupied)
+			for p in occupied_points: occupied_area = occupied_area or r.has_point(p)
+			if objects.map_data.surfaces[kind].factor == 0 and occupied_area:
+				feedback.emit("Спершу відведіть людей і обоз із цієї ділянки")
 				return true
 			zones.append({"kind":kind,"x":r.position.x,"y":r.position.y,"w":r.size.x,"h":r.size.y})
 			dirty = true

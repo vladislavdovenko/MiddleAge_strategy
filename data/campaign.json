@@ -130,5 +130,17 @@
    ],
    "scale": 0.65
   }
+ ],
+ "events": [
+  {
+   "time": 3600,
+   "gate": "south",
+   "open": false
+  },
+  {
+   "time": 43200,
+   "gate": "south",
+   "open": true
+  }
  ]
 }
