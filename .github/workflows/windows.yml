@@ -39,6 +39,15 @@ jobs:
         with:
           name: map-preview
           path: map-preview.png
+      - name: Capture generated county
+        shell: pwsh
+        run: |
+          & $env:GODOT_EDITOR --audio-driver Dummy --script res://tests/region_preview.gd
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path region-preview.png)) { throw "County preview failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: region-preview
+          path: region-preview.png
       - name: Launch packaged game on Windows
         shell: pwsh
         run: |
@@ -48,7 +57,30 @@ jobs:
           if (!(Test-Path "$env:RUNNER_TEMP/game.log")) { throw 'Missing launch log' }
           Get-Content "$env:RUNNER_TEMP/game.log"
           if (Select-String "$env:RUNNER_TEMP/game.log" -Pattern 'SCRIPT ERROR|^ERROR:') { throw 'Startup log contains errors' }
+      - name: Verify external PNG in the exported game
+        shell: pwsh
+        run: |
+          $source = (Resolve-Path build/world.png).Path
+          $initial = [IO.File]::ReadAllBytes($source)
+          function Read-Region($log) {
+            $p = Start-Process build/MiddleAge.exe -ArgumentList '--headless','--quit-after','4','--log-file',$log -PassThru
+            if (!$p.WaitForExit(60000)) { $p.Kill(); throw 'Timed out' }
+            $summary = Select-String -Path $log -Pattern 'REGION_READY ([a-f0-9]+) settlements=(\d+)'
+            if ($p.ExitCode -ne 0 -or !$summary) { throw 'External map not loaded' }
+            return $summary.Matches[0]
+          }
+          try {
+            $before = Read-Region "$env:RUNNER_TEMP/before.log"
+            Add-Type -AssemblyName System.Drawing
+            $bmp = [Drawing.Bitmap]::FromFile($source)
+            $bmp.SetPixel(2,2,[Drawing.Color]::FromArgb(212,125,134))
+            $bmp.Save("$env:RUNNER_TEMP/modified.png",[Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+            Copy-Item "$env:RUNNER_TEMP/modified.png" $source -Force
+            $after = Read-Region "$env:RUNNER_TEMP/after.log"
+            if ($before.Groups[1].Value -eq $after.Groups[1].Value -or [int]$after.Groups[2].Value -ne (1+[int]$before.Groups[2].Value)) { throw 'New village did not appear' }
+          } finally { [IO.File]::WriteAllBytes($source,$initial) }
       - uses: actions/upload-artifact@v4
         with:
-          name: MiddleAge-campaign-windows-x64
+          name: MiddleAge-painted-world-windows-x64
           path: build/

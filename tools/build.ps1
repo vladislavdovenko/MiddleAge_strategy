@@ -12,7 +12,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Map checks failed" }
     & $Godot --headless --script res://tests/navigation_load.gd
     if ($LASTEXITCODE -ne 0) { throw "Navigation load scenario failed" }
+    & $Godot --headless --script res://tests/region_checks.gd
+    if ($LASTEXITCODE -ne 0) { throw "Region checks failed" }
+    & $Godot --headless --script res://tests/watch_checks.gd
+    if ($LASTEXITCODE -ne 0) { throw "Road intelligence checks failed" }
+    & $Godot --headless --script res://tests/trade_soak.gd
+    if ($LASTEXITCODE -ne 0) { throw "48-hour county soak failed" }
     New-Item -ItemType Directory -Force build | Out-Null
     & $Godot --headless --export-release "Windows Desktop" build/MiddleAge.exe
     if ($LASTEXITCODE -ne 0) { throw "Windows export failed" }
+    Copy-Item region/world.png,region/LEGEND.txt build/ -Force
 } finally { Pop-Location }
