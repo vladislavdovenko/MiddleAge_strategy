@@ -10,7 +10,12 @@ void fragment(){
 	vec3 mask=texture(masks,UV).rgb;
 	vec2 uv=p/320.0;
 	vec3 c=mix(texture(grass,uv).rgb,texture(earth,uv).rgb,mask.r*0.92);
-	c=mix(c,texture(water_tex,uv).rgb*vec3(.65,.88,1.),smoothstep(.22,.75,mask.b));
-	c=mix(c,texture(track,uv).rgb,smoothstep(.16,.75,mask.g));
+	float channel=smoothstep(.24,.68,mask.g);
+	float grain=texture(water_tex,uv+vec2(TIME*.013,0.)).r;
+	float wave=sin(p.y*.24+sin(p.x*.043+TIME)*1.7+TIME*1.8);
+	vec3 water=mix(vec3(.19,.39,.40),vec3(.28,.51,.55),grain);
+	water+=vec3(.18,.21,.18)*smoothstep(.90,1.,wave)*(.35+.65*grain);
+	c=mix(c,vec3(.58,.55,.36),smoothstep(.17,.37,mask.g));
+	c=mix(c,water,channel);
 	COLOR=vec4(c,1.);
 }

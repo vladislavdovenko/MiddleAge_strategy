@@ -4,6 +4,7 @@ var geo
 var rules: Dictionary
 var time := 0
 var carts: Array[Dictionary]=[]
+var watch:=preload("res://region/watch.gd").new()
 var trades := 0
 var exchanges := 0
 
@@ -19,7 +20,8 @@ func setup(map) -> void:
 				need+=float(t.people[k])*float(rules.needs[rules.classes.keys()[k]][j])/96.0
 			t.demand[good]=need
 			t.stocks[good]=need*(8 if good in t.sites else 1.2)
-		carts.append({"home":i,"at":i,"dest":-1,"p":geo.pos(t.p),"node":geo.idx(t.p),"path":PackedInt64Array(),"next":0,"reports":{},"good":"","load":0.0,"probe":-1,"scout_cursor":i,"recheck":0,"status":"На ринку"})
+		carts.append({"home":i,"at":i,"dest":-1,"p":geo.pos(t.p),"node":geo.idx(t.p),"path":PackedInt64Array(),"next":0,"reports":{},"memory":{},"trails":{},"summoned":{},"aid":false,"good":"","load":0.0,"probe":-1,"scout_cursor":i,"recheck":0,"status":"На ринку"})
+	watch.setup(self)
 	for cart in carts: dispatch(cart)
 
 func dispatch(cart: Dictionary) -> void:
@@ -40,7 +42,7 @@ func dispatch(cart: Dictionary) -> void:
 			var amount:=minf(rules.capacity,minf(surplus,deficit))
 			var score:=amount/maxf(1,geo.pos(town.p).distance_to(geo.pos(buyer.p)))
 			if score<=best: continue
-			var route: PackedInt64Array=geo.route(cart.node,geo.idx(buyer.p),cart.reports)
+			var route: PackedInt64Array=journey(cart,geo.idx(buyer.p))
 			if route.size()<2:
 				if score>delayed_score and not cart.reports.is_empty() and geo.route(cart.node,geo.idx(buyer.p),{}).size()>1:
 					delayed_score=score
@@ -75,10 +77,11 @@ func news(cart: Dictionary,p: Vector2i,record: Dictionary) -> void:
 
 func reroute(cart: Dictionary) -> void:
 	var goal: int=geo.idx(geo.towns[cart.dest].p)
-	var path: PackedInt64Array=geo.route(cart.node,goal,cart.reports)
+	var path: PackedInt64Array=journey(cart,goal)
 	cart.path=path
 	cart.next=0
 	cart.probe=-1
+	cart.aid=false
 	cart.status="Об’їзд" if not path.is_empty() else "Очікує звісток"
 	cart.recheck=time+150
 
@@ -102,9 +105,54 @@ func scout(cart: Dictionary) -> void:
 			break
 	cart.recheck=time+150
 
+func journey(cart: Dictionary,goal: int) -> PackedInt64Array:
+	var avoid: Array=[]
+	for fact in cart.memory.values():
+		if time-fact.seen<rules.security.news_life: avoid.append(fact.node)
+	# Only the cart's remembered tracks augment the public road network.
+	var added: Array=[]
+	for edge: Vector2i in cart.trails:
+		if not geo.graph.are_points_connected(edge.x,edge.y):
+			geo.graph.connect_points(edge.x,edge.y)
+			added.append(edge)
+	var path: PackedInt64Array=geo.route(cart.node,goal,cart.reports,avoid)
+	for edge: Vector2i in added: geo.graph.disconnect_points(edge.x,edge.y)
+	if path.is_empty(): path=geo.ground_route(cart.node,goal,cart.reports,avoid)
+	return path
+
+func remember(actor: Dictionary,who: int,id: int,seen: int) -> void:
+	var old: Dictionary=actor.memory.get(who,{})
+	if seen<=old.get("seen",-1): return
+	actor.memory[who]={"node":id,"seen":seen}
+	if actor.has("dest") and actor.dest>=0 and not actor.aid and actor.path.has(id) and (old.get("node",-1)!=id or time-int(old.get("seen",0))>=rules.security.news_life):
+		reroute(actor)
+
+func share(a: Dictionary,b: Dictionary,now: int) -> void:
+	for key in a.memory:
+		var fact: Dictionary=a.memory[key]
+		if now-fact.seen<rules.security.news_life: remember(b,key,fact.node,fact.seen)
+
+func call_guard(cart: Dictionary) -> void:
+	if cart.dest<0 or cart.aid: return
+	for key in cart.memory:
+		var fact: Dictionary=cart.memory[key]
+		if time-fact.seen>=rules.security.news_life or time-cart.summoned.get(key,-100000)<rules.security.news_life: continue
+		for guard in watch.guards:
+			if guard.memory.get(key,{}).get("seen",-1)>=fact.seen and cart.p.distance_to(guard.p)<=rules.contact: continue
+			var path: PackedInt64Array=journey(cart,guard.home)
+			if path.is_empty(): continue
+			cart.path=path
+			cart.next=0
+			cart.probe=guard.home
+			cart.aid=true
+			cart.summoned[key]=time
+			cart.status="По варту"
+			return
+
 func advance() -> void:
 	time+=1
 	var phase: int=(time/21600)%4
+	watch.tick(time,phase)
 	for cart in carts:
 		for p in geo.bridges:
 			var deck: Vector2=geo.pos(p)
@@ -115,6 +163,15 @@ func advance() -> void:
 			var a:=carts[i]
 			var b:=carts[j]
 			if a.p.distance_to(b.p)>rules.contact or not geo.sees(a.p,b.p,phase): continue
+			share(a,b,time)
+			share(b,a,time)
+			if a.trails.size() or b.trails.size():
+				var na:int=a.trails.size()
+				var nb:int=b.trails.size()
+				a.trails.merge(b.trails)
+				b.trails.merge(a.trails)
+				if a.trails.size()>na and a.dest>=0 and not a.aid: reroute(a)
+				if b.trails.size()>nb and b.dest>=0 and not b.aid: reroute(b)
 			for p in geo.bridges:
 				if a.reports.has(p) and a.reports[p].version>b.reports.get(p,{"version":-1}).version:
 					news(b,p,a.reports[p])
@@ -124,13 +181,14 @@ func advance() -> void:
 					exchanges+=1
 	for cart in carts:
 		if cart.dest<0: continue
+		if time%12==0: call_guard(cart)
 		if cart.path.is_empty():
 			if time>=cart.recheck: scout(cart)
 			continue
 		var travel: float=rules.speed
 		while travel>0 and cart.next<cart.path.size():
 			var id: int=cart.path[cart.next]
-			var dest: Vector2=geo.graph.get_point_position(id)
+			var dest: Vector2=geo.location(id)
 			var p:=Vector2i(id%geo.size.x,id/geo.size.x)
 			if geo.bridges.has(p) and not geo.bridges[p].open and cart.p.distance_to(dest)<float(rules.contact):
 				news(cart,p,geo.bridges[p])
@@ -139,12 +197,29 @@ func advance() -> void:
 			cart.p=cart.p.move_toward(dest,travel)
 			travel-=distance
 			if cart.p==dest:
+				if cart.node!=id:
+					var edge:=Vector2i(mini(cart.node,id),maxi(cart.node,id))
+					if not geo.segments.has(edge):
+						geo.node(Vector2i(cart.node%geo.size.x,cart.node/geo.size.x))
+						geo.node(p)
+						cart.trails[edge]=true
+					else: watch.traffic[id]=watch.traffic.get(id,0)+1
 				cart.node=id
 				cart.next+=1
 		if not cart.path.is_empty() and cart.next>=cart.path.size():
 			cart.path=PackedInt64Array()
 			if cart.probe>=0:
 				cart.probe=-1
+				if cart.aid:
+					for guard in watch.guards:
+						if cart.p.distance_to(guard.p)<=rules.contact: share(cart,guard,time)
+					# Leave a report with the duty watch at its camp.
+					for guard in watch.guards:
+						if guard.home==cart.node:
+							for key in cart.memory:
+								var note:Dictionary=cart.memory[key]
+								if note.seen>guard.mail.get(key,{}).get("seen",-1): guard.mail[key]=note.duplicate()
+					reroute(cart)
 				continue
 			var t: Dictionary=geo.towns[cart.dest]
 			t.stocks[cart.good]+=cart.load
@@ -169,7 +244,10 @@ func toggle(p: Vector2i) -> bool:
 func snapshot() -> Dictionary:
 	var ledgers: Array=[]
 	for town in geo.towns: ledgers.append({"stocks":town.stocks.duplicate(),"deliveries":town.deliveries})
-	return {"map":geo.fingerprint,"generator":rules.generator,"time":time,"ledgers":ledgers,"gates":geo.bridges.duplicate(true),"carts":carts.duplicate(true),"trades":trades,"exchanges":exchanges}
+	return {"watch":[watch.bands.duplicate(true),watch.guards.duplicate(true),watch.traffic.duplicate()],"map":geo.fingerprint,"generator":rules.generator,"time":time,"ledgers":ledgers,"gates":geo.bridges.duplicate(true),"carts":carts.duplicate(true),"trades":trades,"exchanges":exchanges}
+
+func valid_node(id: int) -> bool:
+	return id>=0 and id<geo.size.x*geo.size.y and geo.land[Vector2i(id%geo.size.x,id/geo.size.x)]!="river"
 
 func restore(data: Variant) -> bool:
 	if not data is Dictionary or data.get("map")!=geo.fingerprint or data.get("generator")!=rules.generator: return false
@@ -181,13 +259,17 @@ func restore(data: Variant) -> bool:
 		for good in rules.goods:
 			if typeof(row.stocks.get(good)) not in [TYPE_FLOAT,TYPE_INT] or row.stocks[good]<0: return false
 	for c in data.carts:
+		if c is Dictionary:
+			for k in ["memory","summoned","trails"]:
+				if not c.has(k): c[k]={}
+			if not c.has("aid"): c.aid=false
 		if not c is Dictionary: return false
 		for key in carts[0]:
 			if not c.has(key): return false
 		if not c.p is Vector2 or not c.path is PackedInt64Array or not c.reports is Dictionary: return false
-		if c.at<0 or c.at>=geo.towns.size() or c.dest< -1 or c.dest>=geo.towns.size() or not geo.graph.has_point(c.node): return false
+		if c.at<0 or c.at>=geo.towns.size() or c.dest< -1 or c.dest>=geo.towns.size() or (c.node<0 or c.node>=geo.size.x*geo.size.y): return false
 		for id in c.path:
-			if not geo.graph.has_point(id): return false
+			if id<0 or id>=geo.size.x*geo.size.y: return false
 	for p in geo.bridges:
 		if not data.gates.get(p) is Dictionary or not data.gates[p].get("open") is bool or not data.gates[p].get("version") is int: return false
 	for i in geo.towns.size():
@@ -195,6 +277,13 @@ func restore(data: Variant) -> bool:
 		geo.towns[i].deliveries=data.ledgers[i].deliveries
 	geo.bridges=data.gates.duplicate(true)
 	carts.assign(data.carts.duplicate(true))
+	for c in carts:
+		for e: Vector2i in c.trails:
+			for id in [e.x,e.y]: geo.node(Vector2i(id%geo.size.x,id/geo.size.x))
+	if data.has("watch"):
+		watch.bands.assign(data.watch[0].duplicate(true))
+		watch.guards.assign(data.watch[1].duplicate(true))
+		watch.traffic=data.watch[2].duplicate()
 	time=data.time
 	trades=data.trades
 	exchanges=data.exchanges

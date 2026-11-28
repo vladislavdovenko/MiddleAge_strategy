@@ -14,6 +14,8 @@ var card:=Label.new()
 var status:=Label.new()
 var controls:=HBoxContainer.new()
 var actors: Array[Sprite2D]=[]
+var patrol_art: Array[Sprite2D]=[]
+var band_art: Array[Sprite2D]=[]
 var zoom_level:=5
 var rates: Array=[1,10,60,300,600]
 var rate:=2
@@ -94,6 +96,12 @@ func _ready() -> void:
 		actors.append(sprite(load(assets.cart),c.p,.24))
 		var rider:=sprite(preload("res://region/assets/rider.webp"),c.p,.52)
 		actors[-1].set_meta("rider",rider)
+	for camp in market.watch.camps:
+		var center:=geo.pos(camp.p)
+		sprite(preload("res://art/cottage.svg"),center,.82)
+		if camp.kind=="garrison": sprite(preload("res://region/assets/standard.webp"),center+Vector2(22,3),.32)
+	for guard in market.watch.guards: patrol_art.append(sprite(preload("res://region/assets/guard.webp"),guard.p,.40))
+	for band in market.watch.bands: band_art.append(sprite(preload("res://region/assets/traveller.webp"),band.p,.38))
 	add_child(cam)
 	cam.position=geo.pos(geo.towns[0].p)
 	cam.zoom=Vector2.ONE*zoom_factor()
@@ -209,11 +217,30 @@ func _process(dt: float) -> void:
 		var rider: Sprite2D=actors[i].get_meta("rider")
 		rider.flip_h=not actors[i].flip_h
 		rider.position=c.p+Vector2(-27 if actors[i].flip_h else 27,1)
+	for group in [[market.watch.guards,patrol_art],[market.watch.bands,band_art]]:
+		for i in group[0].size():
+			var person: Dictionary=group[0][i]
+			var art: Sprite2D=group[1][i]
+			if absf(art.position.x-person.p.x)>.1: art.flip_h=person.p.x<art.position.x
+			art.position=person.p
+			art.visible=person.mode!="gone"
 	for label in labels: label.scale=Vector2.ONE*clampf(0.72/cam.zoom.x,.7,2.1)
 	status.text="День %d · %02d:%02d    Доставок %d    %s" % [1+(market.time+21600)/86400,(6+market.time/3600)%24,market.time/60%60,market.trades,notice]
 	var p:=get_global_mouse_position()
 	card.hide()
 	if editor.visible: return
+	for group in [[market.watch.guards,"Варта"],[market.watch.bands,"Розбійники"],[market.carts,"Купець"]]:
+		for unit: Dictionary in group[0]:
+			if unit.get("mode","")=="gone" or p.distance_to(unit.p)>maxf(25,8/cam.zoom.x): continue
+			var modes={"camp":"у таборі","woods":"прямує до лісу","approach":"виходить до дороги","ambush":"у засідці","escape":"відступає до лісу","hidden":"переховується","search":"оглядає місце","investigate":"прямує до останнього місця спостереження","return":"повертається","stranded":"очікує переправи"}
+			card.text="%s · %s" % [group[1],modes.get(unit.get("mode",""),unit.get("status",""))]
+			if unit.has("good"): card.text+=" · %s %d" % [geo.rules.goods.get(unit.good,"без вантажу"),unit.load]
+			for key in unit.memory:
+				var fact: Dictionary=unit.memory[key]
+				card.text+="\nЗасідка біля (%d, %d) · %d хв тому" % [fact.node%geo.size.x,fact.node/geo.size.x,(market.time-fact.seen)/60]
+			if unit.has("trails"): card.text+="\nВідомі об’їзди: %d відтинків · переправи: %d" % [unit.trails.size(),unit.reports.size()]
+			card.show()
+			return
 	for t in geo.towns:
 		if p.distance_to(geo.pos(t.p))>maxf(68,13/cam.zoom.x): continue
 		var people:=PackedStringArray()
@@ -226,12 +253,6 @@ func _process(dt: float) -> void:
 		card.text="%s · %s\n%s\nНаселення %d · %s\nЗалежні села: %s\nВиробництво: %s\nЗапаси: %s\nПрибуло вантажів: %d" % [t.name,"місто" if t.kind=="town" else "село",t.owner,t.pop,", ".join(people),", ".join(t.villages),", ".join(sites),", ".join(stock),t.deliveries]
 		card.show()
 		return
-	for c in market.carts:
-		if p.distance_to(c.p)<maxf(30,9/cam.zoom.x):
-			card.text="Купець із %s · %s\nВантаж: %s %d" % [geo.towns[c.home].name,c.status,geo.rules.goods.get(c.good,"—"),c.load]
-			card.show()
-			return
-
 func save_market() -> void:
 	var target: String="user://trade-"+geo.fingerprint+".save"
 	var f:=FileAccess.open(target+".tmp",FileAccess.WRITE)

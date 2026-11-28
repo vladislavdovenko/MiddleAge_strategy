@@ -174,12 +174,17 @@ func trail(p: Vector2i,q: Vector2i) -> bool:
 		builder.set_point_weight_scale(steps[i],0.65)
 	return not steps.is_empty()
 
-func route(a: int,b: int,reports: Dictionary) -> PackedInt64Array:
+func route(a: int,b: int,reports: Dictionary, avoid: Array=[]) -> PackedInt64Array:
+	if not graph.has_point(a) or not graph.has_point(b): return PackedInt64Array()
 	var closed: Array[int]=[]
 	for p in bridges:
 		if not reports.get(p,{"open":true}).open:
 			closed.append(idx(p))
 			graph.set_point_disabled(idx(p))
+	for id: int in avoid:
+		if id!=a and id!=b and graph.has_point(id):
+			closed.append(id)
+			graph.set_point_disabled(id)
 	var path:=graph.get_id_path(a,b)
 	for id in closed: graph.set_point_disabled(id,false)
 	return path
@@ -197,6 +202,7 @@ func height_at(p: Vector2) -> float:
 func sees(a: Vector2,b: Vector2,phase: int) -> bool:
 	var dist:=a.distance_to(b)
 	var radius: float=rules.forest_sight if land.get(Vector2i(a/cell))=="forest" else rules.sight*(1+height_at(a)*rules.gain)
+	if land.get(Vector2i(b/cell))=="forest": radius*=float(rules.security.forest_target)
 	if dist>radius*float(rules.light[phase]): return false
 	var steps:=ceili(dist/12)
 	var h1:=height_at(a)+2.0
@@ -208,3 +214,20 @@ func sees(a: Vector2,b: Vector2,phase: int) -> bool:
 		for tree: Vector2 in obstacles.get(Vector2i(p/cell),[]):
 			if p.distance_squared_to(tree)<25: return false
 	return true
+
+# When the built roads end, the cart may travel across passable ground.
+func ground_route(a: int,b: int,reports: Dictionary,avoid: Array=[]) -> PackedInt64Array:
+	var blocked: Array=[]
+	for p in bridges:
+		if not reports.get(p,{"open":true}).open: blocked.append(p)
+	for id: int in avoid:
+		if id!=a and id!=b: blocked.append(Vector2i(id%size.x,id/size.x))
+	for p in blocked: builder.set_point_solid(p,true)
+	var path:=builder.get_id_path(Vector2i(a%size.x,a/size.x),Vector2i(b%size.x,b/size.x))
+	for p in blocked: builder.set_point_solid(p,false)
+	var ids:=PackedInt64Array()
+	for p in path: ids.append(idx(p))
+	return ids
+
+func location(id: int) -> Vector2:
+	return pos(Vector2i(id%size.x,id/size.x))
