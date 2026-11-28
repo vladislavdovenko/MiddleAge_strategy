@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://main.gd" id="1"]
+[ext_resource type="Script" path="res://editor/tools.gd" id="2"]
 
 [node name="Valley" type="VBoxContainer"]
 anchors_preset = 15
@@ -30,6 +31,14 @@ text = "Закрити міст"
 
 [node name="Demo" type="Button" parent="Bar"]
 text = "Проїхати через міст"
+
+[node name="Editor" type="Button" parent="Bar"]
+text = "Редактор"
+toggle_mode = true
+
+[node name="Tools" type="VBoxContainer" parent="."]
+visible = false
+script = ExtResource("2")
 
 [node name="Frame" type="SubViewportContainer" parent="."]
 stretch = true

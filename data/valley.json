@@ -61,181 +61,323 @@
   60,
   600
  ],
- "trees": [
-  [
-   "oak",
-   242,
-   254,
-   10,
-   0.43
-  ],
-  [
-   "apple",
-   287,
-   299,
-   30,
-   0.36
-  ],
-  [
-   "oak",
-   690,
-   241,
-   10,
-   0.32
-  ],
-  [
-   "apple",
-   740,
-   291,
-   30,
-   0.29
-  ],
-  [
-   "spire",
-   114,
-   171,
-   10,
-   0.34
-  ],
-  [
-   "spire",
-   139,
-   173,
-   10,
-   0.26
-  ],
-  [
-   "oak",
-   801,
-   447,
-   10,
-   0.37
-  ],
-  [
-   "oak",
-   836,
-   440,
-   10,
-   0.29
-  ],
-  [
-   "spire",
-   50,
-   120,
-   10,
-   0.31
-  ],
-  [
-   "spire",
-   72,
-   129,
-   10,
-   0.26
-  ],
-  [
-   "oak",
-   305,
-   92,
-   10,
-   0.34
-  ],
-  [
-   "oak",
-   335,
-   101,
-   10,
-   0.27
-  ],
-  [
-   "oak",
-   347,
-   83,
-   10,
-   0.22
-  ],
-  [
-   "oak",
-   351,
-   413,
-   10,
-   0.31
-  ],
-  [
-   "spire",
-   326,
-   427,
-   10,
-   0.38
-  ],
-  [
-   "spire",
-   320,
-   404,
-   10,
-   0.21
-  ],
-  [
-   "spire",
-   550,
-   354,
-   10,
-   0.25
-  ],
-  [
-   "spire",
-   572,
-   359,
-   10,
-   0.3
-  ],
-  [
-   "spire",
-   558,
-   330,
-   10,
-   0.2
-  ],
-  [
-   "oak",
-   853,
-   103,
-   10,
-   0.41
-  ],
-  [
-   "spire",
-   886,
-   113,
-   10,
-   0.33
-  ],
-  [
-   "spire",
-   912,
-   126,
-   10,
-   0.23
-  ],
-  [
-   "oak",
-   899,
-   447,
-   10,
-   0.22
-  ],
-  [
-   "spire",
-   60,
-   460,
-   10,
-   0.27
-  ]
- ],
  "assets": {
   "oak": "res://art/oak.webp",
   "spire": "res://art/spire.webp",
   "apple": "res://art/apple.webp",
-  "cart": "res://art/cart.webp"
+  "cart": "res://art/cart.webp",
+  "cottage": "res://art/cottage.svg",
+  "manor": "res://art/manor.svg"
  },
- "cart_layer": 20
+ "cart_layer": 5,
+ "objects": [
+  {
+   "asset": "oak",
+   "x": 242,
+   "y": 254,
+   "scale": 0.43,
+   "id": "object-001",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "apple",
+   "x": 287,
+   "y": 299,
+   "scale": 0.36,
+   "id": "object-002",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 690,
+   "y": 241,
+   "scale": 0.32,
+   "id": "object-003",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "apple",
+   "x": 740,
+   "y": 291,
+   "scale": 0.29,
+   "id": "object-004",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 114,
+   "y": 171,
+   "scale": 0.34,
+   "id": "object-005",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 139,
+   "y": 173,
+   "scale": 0.26,
+   "id": "object-006",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 801,
+   "y": 447,
+   "scale": 0.37,
+   "id": "object-007",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 836,
+   "y": 440,
+   "scale": 0.29,
+   "id": "object-008",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 50,
+   "y": 120,
+   "scale": 0.31,
+   "id": "object-009",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 72,
+   "y": 129,
+   "scale": 0.26,
+   "id": "object-010",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 305,
+   "y": 92,
+   "scale": 0.34,
+   "id": "object-011",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 335,
+   "y": 101,
+   "scale": 0.27,
+   "id": "object-012",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 347,
+   "y": 83,
+   "scale": 0.22,
+   "id": "object-013",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 351,
+   "y": 413,
+   "scale": 0.31,
+   "id": "object-014",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 326,
+   "y": 427,
+   "scale": 0.38,
+   "id": "object-015",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 320,
+   "y": 404,
+   "scale": 0.21,
+   "id": "object-016",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 550,
+   "y": 354,
+   "scale": 0.25,
+   "id": "object-017",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 572,
+   "y": 359,
+   "scale": 0.3,
+   "id": "object-018",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 558,
+   "y": 330,
+   "scale": 0.2,
+   "id": "object-019",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 853,
+   "y": 103,
+   "scale": 0.41,
+   "id": "object-020",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 886,
+   "y": 113,
+   "scale": 0.33,
+   "id": "object-021",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 912,
+   "y": 126,
+   "scale": 0.23,
+   "id": "object-022",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "oak",
+   "x": 899,
+   "y": 447,
+   "scale": 0.22,
+   "id": "object-023",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "spire",
+   "x": 60,
+   "y": 460,
+   "scale": 0.27,
+   "id": "object-024",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "cottage",
+   "x": 118,
+   "y": 228,
+   "scale": 0.5,
+   "id": "object-025",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "cottage",
+   "x": 143,
+   "y": 219,
+   "scale": 0.5,
+   "id": "object-026",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "cottage",
+   "x": 161,
+   "y": 238,
+   "scale": 0.5,
+   "id": "object-027",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "cottage",
+   "x": 764,
+   "y": 227,
+   "scale": 0.5,
+   "id": "object-028",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "cottage",
+   "x": 793,
+   "y": 240,
+   "scale": 0.5,
+   "id": "object-029",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  },
+  {
+   "asset": "manor",
+   "x": 826,
+   "y": 161,
+   "scale": 0.5,
+   "id": "object-030",
+   "layer": 5,
+   "flip_h": false,
+   "flip_v": false
+  }
+ ],
+ "asset_labels": {
+  "oak": "Розлоге дерево",
+  "spire": "Струнке дерево",
+  "apple": "Плодове дерево",
+  "cart": "Декоративний віз",
+  "cottage": "Селянська хата",
+  "manor": "Маєток"
+ }
 }
