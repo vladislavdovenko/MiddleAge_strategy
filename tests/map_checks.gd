@@ -79,6 +79,7 @@ func run() -> void:
 	check(sight.radius(Vector2(245,150),1)<sight.radius(grass,1),"forest sight")
 	check(sight.height(Vector2(820,825))>sight.height(grass) and sight.radius(Vector2(1070,380),1)>sight.radius(grass,1),"elevation improves range")
 	check(sight.radius(Vector2(820,825),1)==sight.radius(Vector2(245,150),1),"forest cap also applies on hilltop")
+	check(not sight.clear_line(Vector2(1030,380),Vector2(1110,380)),"crest blocks line between opposite slopes")
 	var backups: Array = sight.obstacles.duplicate()
 	sight.obstacles = [[grass+Vector2(15,0),5.0,12.0]]
 	check(not sight.sees(grass,grass+Vector2(30,0),1),"object interrupts sight")
