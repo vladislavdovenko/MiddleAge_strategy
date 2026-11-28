@@ -81,28 +81,51 @@ func run() -> void:
 	editor.mirror_v.button_pressed = true
 	check(is_equal_approx(new_tree.scale.x,0.73) and new_tree.z_index==10 and new_tree.flip_h and new_tree.flip_v,"edit object properties")
 	check(ui.objects.pick(new_tree.position+Vector2(0,-4))==new_tree or ui.objects.pick(new_tree.position+Vector2(0,-65))==new_tree,"object picking")
+	var start_count: int = v.data.zones.size()
+	editor.brush.select(1)
+	editor.handle(event,Vector2(1440,620))
+	editor.handle(event,Vector2(1480,665))
+	check(v.data.zones.size()==start_count+1 and v.terrain_at(Vector2(1460,640))=="forest","paint terrain")
 	var tmp := "user://editor-test-%s.json" % OS.get_process_id()
 	check(ui.objects.save_layout(tmp)==OK and ui.objects.save_layout(tmp)==OK,"save and replace")
 	var restored = ui.Objects.new()
 	restored.setup(ui.valley.data,ui.valley.bounds,tmp)
 	var loaded: Sprite2D = restored.sprites[id]
 	check(loaded.position==new_tree.position and loaded.flip_h and loaded.flip_v and loaded.z_index==10 and loaded.scale==new_tree.scale,"reload exact placement")
+	check(restored.map_data.zones.size()==start_count+1,"persist painted surface")
+	editor.brush.select(editor.brush.item_count-1)
+	editor.handle(event,Vector2(1460,640))
+	check(v.data.zones.size()==start_count,"erase terrain")
+	editor.brush.select(0)
 	restored.free()
 	DirAccess.remove_absolute(tmp)
 	new_tree.flip_h = false
 	new_tree.flip_v = false
 	new_tree.z_index = 5
 	ui.get_node("Bar/Editor").button_pressed = false
+	check(v.factor_at(Vector2(245,150)) < v.data.field_factor,"forest slows movement")
+	check(v.factor_at(Vector2(650,400)) < v.data.field_factor,"marsh slows movement")
+	check(v.factor_at(Vector2(1150,390)) < v.factor_at(Vector2(1000,350)),"mountain forest overlap")
+	for blocked in [Vector2(810,380),Vector2(300,480)]:
+		check(not v.walkable(blocked),"blocked terrain")
+	var detour := v.route(Vector2(760,390),Vector2(910,390),2)
+	check(not detour.is_empty(),"route around marsh")
+	for i in range(1,detour.points.size()):
+		for j in 21: check(v.walkable(detour.points[i-1].lerp(detour.points[i],j/20.0)),"route avoids deep marsh")
+	ui.set_zoom(false,Vector2(1810,960))
+	check(ui.camera.position.x>1000 and ui.camera.position.y>650,"camera reaches far corner")
+	ui.set_zoom(false,new_tree.position)
 	if "--preview" in OS.get_cmdline_user_args():
 		for side in [-1,1]:
 			ui.group.position = new_tree.position+Vector2(0,4*side)
 			ui._refresh()
+			await process_frame
 			var natural := await crop_at(ui,new_tree.position)
 			ui.cart.z_index = 5+side
 			var expected := await crop_at(ui,new_tree.position)
 			ui.cart.z_index = 5-side
 			var reversed := await crop_at(ui,new_tree.position)
-			check(natural.get_data()==expected.get_data() and natural.get_data()!=reversed.get_data(),"rendered off-road depth both sides")
+			check(natural.get_data()==expected.get_data() and natural.get_data()!=reversed.get_data(),"depth side=%d expected=%s distinct=%s" % [side,natural.get_data()==expected.get_data(),natural.get_data()!=reversed.get_data()])
 			ui.cart.z_index = 5
 		ui.get_node("Bar/Editor").button_pressed = true
 		editor.choose(new_tree)
@@ -113,6 +136,9 @@ func run() -> void:
 	quit(1 if failed else 0)
 
 func crop_at(ui, pos: Vector2) -> Image:
+	await process_frame
+	await RenderingServer.frame_post_draw
+	await process_frame
 	await RenderingServer.frame_post_draw
 	var view: SubViewport = ui.get_node("Frame/View")
 	var center: Vector2 = view.get_canvas_transform()*pos

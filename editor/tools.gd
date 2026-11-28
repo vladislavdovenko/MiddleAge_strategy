@@ -1,5 +1,9 @@
 extends VBoxContainer
 
+signal surfaces_changed
+var brush := OptionButton.new()
+var first_corner := Vector2.INF
+var occupied := Vector2.INF
 signal feedback(message: String)
 const Objects = preload("res://editor/objects.gd")
 var objects: Objects
@@ -71,6 +75,20 @@ func setup(store: Objects, labels: Dictionary) -> void:
 	layers.value_changed.connect(func(_v): _apply())
 	mirror_h.toggled.connect(func(_v): _apply())
 	mirror_v.toggled.connect(func(_v): _apply())
+	var terrain_row := HBoxContainer.new()
+	add_child(terrain_row)
+	label(terrain_row,"  Місцевість")
+	terrain_row.add_child(brush)
+	brush.add_item("Редагувати об’єкти")
+	for k in store.map_data.surfaces:
+		brush.add_item(store.map_data.surfaces[k].label)
+		brush.set_item_metadata(brush.item_count-1,k)
+	brush.add_item("Стерти ділянку")
+	brush.set_item_metadata(brush.item_count-1,"erase")
+	brush.item_selected.connect(func(_i): first_corner = Vector2.INF; choose(null))
+	place.toggled.connect(func(on): 
+		if on: brush.select(0); first_corner = Vector2.INF)
+	label(terrain_row,"Ділянка — два протилежні кути")
 	refresh_list()
 	choose(null)
 
@@ -134,6 +152,32 @@ func _save() -> void:
 		feedback.emit("Не вдалося зберегти карту: "+error_string(err))
 
 func handle(event: InputEvent, pos: Vector2) -> bool:
+	if brush.selected>0 and event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
+		if not event.pressed or not objects.bounds.has_point(pos): return true
+		var kind: String = brush.get_item_metadata(brush.selected)
+		var zones: Array = objects.map_data.zones
+		if kind == "erase":
+			for i in range(zones.size()-1,-1,-1):
+				var z: Dictionary = zones[i]
+				if Rect2(z.x,z.y,z.w,z.h).has_point(pos):
+					zones.remove_at(i)
+					dirty = true
+					surfaces_changed.emit()
+					break
+		elif first_corner == Vector2.INF:
+			first_corner = pos
+			feedback.emit("Тепер клацніть протилежний кут")
+		else:
+			var r := Rect2(first_corner,pos-first_corner).abs()
+			first_corner = Vector2.INF
+			if r.size.x < 2 or r.size.y < 2: return true
+			if objects.map_data.surfaces[kind].factor == 0 and r.has_point(occupied):
+				feedback.emit("Спершу відведіть віз із цієї ділянки")
+				return true
+			zones.append({"kind":kind,"x":r.position.x,"y":r.position.y,"w":r.size.x,"h":r.size.y})
+			dirty = true
+			surfaces_changed.emit()
+		return true
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if not event.pressed:
 			dragging = false

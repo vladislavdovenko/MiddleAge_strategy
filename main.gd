@@ -14,6 +14,7 @@ var objects := Objects.new()
 var cart := Sprite2D.new()
 var wheel := ShaderMaterial.new()
 var path := Line2D.new()
+var terrain_changed := false
 var selected := true
 var marker := Polygon2D.new()
 var remainder := 0.0
@@ -48,6 +49,12 @@ func _ready() -> void:
 	$Frame/View/Land.add_child(objects)
 	objects.setup(valley.data,valley.bounds)
 	$Tools.setup(objects,valley.data.asset_labels)
+	$Tools.surfaces_changed.connect(func():
+		valley.graph = null
+		terrain_changed = true
+		landscape.queue_redraw()
+		notice = "Місцевість змінено"
+		_refresh())
 	$Tools.feedback.connect(func(message: String): notice = message; _refresh())
 	$Bar/Editor.toggled.connect(_edit_mode)
 	cart.texture = load(valley.data.assets.cart)
@@ -82,6 +89,11 @@ func _ready() -> void:
 
 func _edit_mode(active: bool) -> void:
 	$Tools.visible = active
+	$Tools.first_corner = Vector2.INF
+	$Tools.occupied = group.position
+	if not active and terrain_changed:
+		terrain_changed = false
+		if group.moving and not order(group.target): group.moving = false
 	$Tools.choose(null)
 	for control in [$Bar/Pause,$Bar/Speed,$Bar/Bridge,$Bar/Demo]:
 		control.disabled = active
@@ -95,7 +107,7 @@ func set_zoom(close: bool,focus: Vector2) -> void:
 	landscape.queue_redraw()
 	camera.zoom = Vector2.ONE*(1.8 if close else 1.0)
 	cart.scale = Vector2.ONE*(0.20 if close else 0.18)
-	camera.position = focus if close else valley.bounds.get_center()
+	camera.position = focus
 	_camera_bounds()
 
 func _camera_bounds() -> void:
@@ -159,6 +171,13 @@ func _rate() -> void:
 	_refresh()
 
 func _process(delta: float) -> void:
+	if camera != null and not get_viewport().gui_get_focus_owner() is LineEdit:
+		var dir := Vector2(
+			int(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT))-int(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT)),
+			int(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN))-int(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP)))
+		if dir!=Vector2.ZERO:
+			camera.position += dir.normalized()*460*delta/camera.zoom
+			_camera_bounds()
 	if paused or $Tools.visible or group == null: return
 	remainder += delta*float(valley.data.rates[rate_index])
 	var elapsed := floori(remainder)
@@ -180,5 +199,8 @@ func _refresh() -> void:
 	var day := 1+int((world.time_seconds+21600)/86400)
 	$Bar/Clock.text = "День %d · %02d:%02d:%02d · %s" % [day,int(t/3600),int(t/60)%60,t%60,PHASES[world.phase()]]
 	$Bar/Speed.text = "Час ×%d" % int(valley.data.rates[rate_index])
+	var terrain := valley.terrain_at(group.position)
+	var ground := "Дорога" if terrain=="road" else "Поле"
+	if valley.data.surfaces.has(terrain): ground = valley.data.surfaces[terrain].label
 	var state := "У дорозі" if group.moving else "На місці"
-	$Status.text = "%s   ·   %s   ·   %s" % ["Селянський віз",valley.region_at(group.position),state if notice.is_empty() else notice]
+	$Status.text = "%s   ·   %s   ·   %s" % ["Селянський віз",valley.region_at(group.position),(state+" · "+ground) if notice.is_empty() else notice]

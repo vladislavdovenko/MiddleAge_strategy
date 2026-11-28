@@ -3,6 +3,7 @@ extends Node2D
 const SAVE_PATH := "user://valley-objects-v1.json"
 const MIN_SCALE := 0.05
 const MAX_SCALE := 4.0
+var map_data: Dictionary
 var textures := {}
 var sprites := {}
 var bounds: Rect2
@@ -10,6 +11,7 @@ var next_id := 1
 var read_error := ""
 
 func setup(data: Dictionary, area: Rect2, file_path: String = SAVE_PATH) -> void:
+	map_data = data
 	y_sort_enabled = true
 	bounds = area
 	for key in data.assets:
@@ -19,6 +21,7 @@ func setup(data: Dictionary, area: Rect2, file_path: String = SAVE_PATH) -> void
 		var candidate = JSON.parse_string(FileAccess.get_file_as_string(file_path))
 		if valid_package(candidate):
 			rows = candidate.objects
+			if candidate.has("zones"): data.zones = candidate.zones
 		else:
 			read_error = "Помилка файлу карти. Відкрито початкову карту."
 	for row in rows:
@@ -27,6 +30,14 @@ func setup(data: Dictionary, area: Rect2, file_path: String = SAVE_PATH) -> void
 func valid_package(package: Variant) -> bool:
 	if not package is Dictionary or package.get("version") != 1 or not package.get("objects") is Array:
 		return false
+	if package.has("zones"):
+		if not package.zones is Array: return false
+		for zone in package.zones:
+			if not zone is Dictionary or not map_data.surfaces.has(zone.get("kind","")): return false
+			for k in ["x","y","w","h"]:
+				if typeof(zone.get(k)) not in [TYPE_FLOAT,TYPE_INT] or not is_finite(float(zone[k])): return false
+			var rect := Rect2(zone.x,zone.y,zone.w,zone.h)
+			if not rect.has_area() or not bounds.encloses(rect): return false
 	var ids := {}
 	for row in package.objects:
 		if not row is Dictionary: return false
@@ -86,7 +97,7 @@ func save_layout(file_path: String = SAVE_PATH) -> Error:
 	var tmp := file_path + ".tmp"
 	var f := FileAccess.open(tmp,FileAccess.WRITE)
 	if f == null: return FileAccess.get_open_error()
-	f.store_string(JSON.stringify({"version":1,"objects":rows},"  "))
+	f.store_string(JSON.stringify({"version":1,"objects":rows,"zones":map_data.zones},"  "))
 	f.flush()
 	var err := f.get_error()
 	f.close()
