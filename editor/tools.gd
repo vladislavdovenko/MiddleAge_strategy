@@ -145,7 +145,7 @@ func _delete() -> void:
 	dirty = true
 
 func _save() -> void:
-	var err := objects.save_layout()
+	var err := objects.save_layout(objects.layout_path)
 	if err == OK:
 		dirty = false
 		feedback.emit("Карту збережено. Вона відкриється при наступному запуску.")

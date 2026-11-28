@@ -1,0 +1,10 @@
+{
+ "cell":80, "seed":1327, "generator":1,
+ "palette":{"meadow":"b6bd73","forest":"315c36","mountain":"716259","marsh":"677957","river":"417eab","road":"ad7844","bridge":"e1bd71","town":"ae3438","village":"d47d86","grain":"e5c854","stone":"826f66","copper":"cf753c","iron":"969dab","coal":"403d40"},
+ "goods":{"grain":"Збіжжя","water":"Вода","wood":"Деревина","stone":"Камінь","copper":"Мідь","iron":"Залізо","coal":"Вугілля"},
+ "classes":{"peasants":"Селяни","craft":"Ремісники","merchants":"Купці","nobles":"Шляхта"},
+ "needs":{"peasants":[1,1,0.25,0.03,0.01,0.02,0.03],"craft":[1,1,0.6,0.4,0.3,0.4,0.3],"merchants":[1,1,0.3,0.15,0.1,0.12,0.15],"nobles":[1.3,1,0.5,0.3,0.2,0.4,0.4]},
+ "names":["Вільшани","Гірне","Млинів","Берестове","Рудники","Вербичі","Озерне","Діброва"],
+ "gain":0.012,"sight":190,"forest_sight":56,"contact":65,"speed":2.8,"capacity":30,"period":900,
+ "phase":["ffddbd","ffffff","e6ae9b","8592ba"],"light":[0.81,1,0.66,0.38]
+}

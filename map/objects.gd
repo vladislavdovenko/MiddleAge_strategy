@@ -1,6 +1,7 @@
 extends Node2D
 
 const SAVE_PATH := "user://valley-objects-v1.json"
+var layout_path: String = SAVE_PATH
 const MIN_SCALE := 0.05
 const MAX_SCALE := 4.0
 var map_data: Dictionary
