@@ -9,6 +9,8 @@ const CART := "cart-01"
 var world := World.new()
 var valley := Valley.new()
 var landscape := Terrain.new()
+const Objects = preload("res://editor/objects.gd")
+var objects := Objects.new()
 var cart := Sprite2D.new()
 var wheel := ShaderMaterial.new()
 var path := Line2D.new()
@@ -43,29 +45,26 @@ func _ready() -> void:
 	camera = $Frame/View/Camera
 	$Frame/View/Land.add_child(landscape)
 	landscape.valley = valley
-	for entry in valley.data.trees:
-		var sprite := Sprite2D.new()
-		sprite.texture = load(valley.data.assets[entry[0]])
-		sprite.offset.y = -sprite.texture.get_height()*0.5
-		sprite.position = Vector2(entry[1],entry[2])
-		sprite.z_index = int(entry[3])
-		sprite.scale = Vector2.ONE * float(entry[4])
-		$Frame/View/Land.add_child(sprite)
+	$Frame/View/Land.add_child(objects)
+	objects.setup(valley.data,valley.bounds)
+	$Tools.setup(objects,valley.data.asset_labels)
+	$Tools.feedback.connect(func(message: String): notice = message; _refresh())
+	$Bar/Editor.toggled.connect(_edit_mode)
 	cart.texture = load(valley.data.assets.cart)
 	cart.offset.y = -cart.texture.get_height()*0.5
 	cart.scale = Vector2.ONE*0.18
 	cart.z_index = valley.data.cart_layer
 	wheel.shader = preload("res://map/wheel.gdshader")
 	cart.material = wheel
-	$Frame/View/Land.add_child(cart)
+	objects.add_child(cart)
 	path.width = 2.0
 	path.default_color = Color("#8d4834c0")
 	path.antialiased = true
-	path.z_index = 3
+	path.z_index = 0
 	$Frame/View/Land.add_child(path)
 	marker.color = Color("#883d2e")
 	marker.polygon = PackedVector2Array([Vector2(0,-5),Vector2(4,0),Vector2(0,5),Vector2(-4,0)])
-	marker.z_index = 4
+	marker.z_index = 0
 	$Frame/View/Land.add_child(marker)
 	$Bar/Pause.pressed.connect(_pause)
 	$Bar/Speed.pressed.connect(_rate)
@@ -76,6 +75,19 @@ func _ready() -> void:
 	$Frame.resized.connect(_camera_bounds)
 	set_zoom(false,group.position)
 	order(Valley.point(valley.data.demo_target))
+
+	if not objects.read_error.is_empty():
+		notice = objects.read_error
+		_refresh()
+
+func _edit_mode(active: bool) -> void:
+	$Tools.visible = active
+	$Tools.choose(null)
+	for control in [$Bar/Pause,$Bar/Speed,$Bar/Bridge,$Bar/Demo]:
+		control.disabled = active
+	$Help.text = "ЛКМ — вибрати або перетягнути   •   Розмістити — додати з каталогу" if active else "ЛКМ — точка призначення   •   Колесо — масштаб   •   ПКМ — огляд"
+	notice = "Режим редактора" if active else ("Карта має незбережені зміни" if $Tools.dirty else "")
+	_refresh()
 
 func set_zoom(close: bool,focus: Vector2) -> void:
 	detail = close
@@ -95,6 +107,8 @@ func _camera_bounds() -> void:
 	camera.force_update_scroll()
 
 func _map_input(event: InputEvent) -> void:
+	if $Tools.visible and (event is InputEventMouseButton or event is InputEventMouseMotion):
+		if $Tools.handle(event,$Frame/View.get_canvas_transform().affine_inverse()*event.position): return
 	if event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_RIGHT:
 		camera.position -= event.relative/camera.zoom
 		_camera_bounds()
@@ -145,7 +159,7 @@ func _rate() -> void:
 	_refresh()
 
 func _process(delta: float) -> void:
-	if paused or group == null: return
+	if paused or $Tools.visible or group == null: return
 	remainder += delta*float(valley.data.rates[rate_index])
 	var elapsed := floori(remainder)
 	if elapsed < 1: return

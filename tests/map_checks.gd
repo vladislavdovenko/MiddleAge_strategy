@@ -65,12 +65,55 @@ func run() -> void:
 	ui.world.advance(6500-ui.world.time_seconds)
 	ui._refresh()
 	check("07:48:20" in ui.get_node("Bar/Clock").text,"clock at 6500 seconds")
+	var editor = ui.get_node("Tools")
+	ui.get_node("Bar/Editor").button_pressed = true
+	var t_before: int = ui.world.time_seconds
+	ui._process(20)
+	check(ui.world.time_seconds==t_before,"clock paused while editing")
+	editor.place.button_pressed = true
+	editor.handle(event,Vector2(318,371))
+	var new_tree: Sprite2D = editor.selected
+	check(new_tree != null and new_tree.position == Vector2(318,371),"place object")
+	var id: String = new_tree.get_meta("object_id")
+	editor.scale_box.value = 73
+	editor.layers.value = 10
+	editor.mirror_h.button_pressed = true
+	editor.mirror_v.button_pressed = true
+	check(is_equal_approx(new_tree.scale.x,0.73) and new_tree.z_index==10 and new_tree.flip_h and new_tree.flip_v,"edit object properties")
+	check(ui.objects.pick(new_tree.position+Vector2(0,-4))==new_tree or ui.objects.pick(new_tree.position+Vector2(0,-65))==new_tree,"object picking")
+	var tmp := "user://editor-test-%s.json" % OS.get_process_id()
+	check(ui.objects.save_layout(tmp)==OK and ui.objects.save_layout(tmp)==OK,"save and replace")
+	var restored = ui.Objects.new()
+	restored.setup(ui.valley.data,ui.valley.bounds,tmp)
+	var loaded: Sprite2D = restored.sprites[id]
+	check(loaded.position==new_tree.position and loaded.flip_h and loaded.flip_v and loaded.z_index==10 and loaded.scale==new_tree.scale,"reload exact placement")
+	restored.free()
+	DirAccess.remove_absolute(tmp)
+	new_tree.flip_h = false
+	new_tree.flip_v = false
+	new_tree.z_index = 5
+	ui.get_node("Bar/Editor").button_pressed = false
 	if "--preview" in OS.get_cmdline_user_args():
-		ui.group.position = Vector2(270,265)
-		ui.order(b)
-		ui.set_zoom(true,Vector2(350,260))
+		for side in [-1,1]:
+			ui.group.position = new_tree.position+Vector2(0,4*side)
+			ui._refresh()
+			var natural := await crop_at(ui,new_tree.position)
+			ui.cart.z_index = 5+side
+			var expected := await crop_at(ui,new_tree.position)
+			ui.cart.z_index = 5-side
+			var reversed := await crop_at(ui,new_tree.position)
+			check(natural.get_data()==expected.get_data() and natural.get_data()!=reversed.get_data(),"rendered off-road depth both sides")
+			ui.cart.z_index = 5
+		ui.get_node("Bar/Editor").button_pressed = true
+		editor.choose(new_tree)
+		ui.set_zoom(true,new_tree.position)
 		await RenderingServer.frame_post_draw
-		var frame := root.get_texture().get_image()
-		check(frame.save_png("res://map-preview.png")==OK,"save rendered preview")
+		check(root.get_texture().get_image().save_png("res://map-preview.png")==OK,"editor screenshot")
 	print("Map checks: ",failed," failed")
 	quit(1 if failed else 0)
+
+func crop_at(ui, pos: Vector2) -> Image:
+	await RenderingServer.frame_post_draw
+	var view: SubViewport = ui.get_node("Frame/View")
+	var center: Vector2 = view.get_canvas_transform()*pos
+	return view.get_texture().get_image().get_region(Rect2i(Vector2i(center)-Vector2i(40,45),Vector2i(80,60)))

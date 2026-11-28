@@ -8,21 +8,6 @@ var ink := Color("#675438")
 func polygon(points: Array,color: String) -> void:
 	draw_colored_polygon(PackedVector2Array(points),Color(color))
 
-func cottage(p: Vector2, scale_factor: float) -> void:
-	draw_set_transform(p,0,Vector2.ONE*scale_factor)
-	polygon([Vector2(-13,0),Vector2(12,0),Vector2(12,-15),Vector2(-13,-15)],"#d4b784")
-	polygon([Vector2(-17,-13),Vector2(-6,-26),Vector2(8,-26),Vector2(16,-13)],"#915739")
-	draw_line(Vector2(-17,-13),Vector2(-6,-26),ink,1.6,true)
-	for k in [-11,-2,10]:
-		draw_line(Vector2(k,0),Vector2(k,-14),Color("#806343"),1,true)
-	draw_line(Vector2(-11,-3),Vector2(-3,-14),Color("#806343"),1,true)
-	for k in 6:
-		draw_line(Vector2(-12+k*4,-15),Vector2(-5+k*3,-23),Color("#b17b4d"),0.9,true)
-	draw_line(Vector2(-13,0),Vector2(12,0),ink,1,true)
-	draw_rect(Rect2(-1,-9,5,9),ink)
-	draw_rect(Rect2(-8,-10,3,4),Color("#5c6357"))
-	draw_set_transform(Vector2.ZERO)
-
 func _draw() -> void:
 	if valley == null: return
 	var rng := RandomNumberGenerator.new()
@@ -77,17 +62,5 @@ func _draw() -> void:
 		for x in [bx,ex]: draw_circle(Vector2(x,y+off),2.3,ink)
 	if not valley.bridge_open:
 		draw_line(Vector2(bx,y-12),Vector2(bx,y+12),Color("#963c30"),5,true)
-	for home in [Vector2(118,228),Vector2(143,219),Vector2(161,238),Vector2(764,227),Vector2(793,240)]:
-		cottage(home,1.0 if detailed else 0.75)
-	# A small fortified manor overlooks the eastern approach.
-	var manor := Vector2(826,161)
-	draw_set_transform(manor)
-	polygon([Vector2(-24,0),Vector2(18,0),Vector2(18,-15),Vector2(-24,-15)],"#baa783")
-	for tx in [-23,0,18]:
-		var height := 28 if tx == 0 else 21
-		draw_rect(Rect2(tx-4,-height,9,height),Color("#c6b998"))
-		polygon([Vector2(tx-6,-height),Vector2(tx,-height-10),Vector2(tx+7,-height)],"#895843")
-		draw_line(Vector2(tx,-height+4),Vector2(tx,-height+8),ink,1.6)
-	draw_set_transform(Vector2.ZERO)
 	for item in [[Vector2(85,192),"Вільшани"],[Vector2(728,202),"Млинів"],[Vector2(458,356),"Рін"]]:
 		draw_string(ThemeDB.fallback_font,item[0],item[1],HORIZONTAL_ALIGNMENT_LEFT,-1,13,ink)
