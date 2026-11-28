@@ -111,6 +111,14 @@ func run() -> void:
 	check(campaign.restore(travelling),"restore en route")
 	campaign.advance(120)
 	check(campaign.snapshot()==finish,"restored campaign follows same timeline")
+	check("вирушив" in campaign.order_feedback,"courier reports accepted route")
+	check(campaign.restore(travelling),"restore outbound courier for failed delivery")
+	# A free point in the middle of the river has no wagon route.
+	campaign.pending.target = Vector2(480,100)
+	var before_refusal: Vector2 = ui.world.groups["cart-01"].position
+	campaign.advance(120)
+	check(campaign.pending.is_empty() and "не знайшов" in campaign.order_feedback,"courier returns failure to lord")
+	check(before_refusal==ui.world.groups["cart-01"].position,"failed destination does not move cart")
 	campaign.restore(saved)
 	var editor = ui.get_node("Tools")
 	ui.get_node("Bar/Editor").button_pressed = true

@@ -13,6 +13,8 @@ var navigators := {}
 var reports := {}
 var locations := {}
 var revision := 0
+var order_feedback := ""
+var report_number := 0
 
 func setup(sim,geography,definition: Dictionary) -> void:
 	world = sim
@@ -55,17 +57,31 @@ func send_to(id: String,destination: Vector2) -> bool:
 	return success
 
 func issue_cart(destination: Vector2) -> bool:
+	order_feedback = ""
+	if not map.bounds.has_point(destination) or map.factor_at(destination)<=0:
+		order_feedback = "Ця точка недоступна для обозу. Виберіть прохідну ділянку."
+		return false
 	var lord: Vector2 = world.groups[config.lord].position
-	var cart: Vector2 = world.groups[config.cart].position
-	if lord.distance_to(cart)<=config.message_range and live.has(config.cart):
-		if not send_to(config.cart,destination): return false
+	var cart: World.Group = world.groups[config.cart]
+	if lord.distance_to(cart.position)<=config.message_range and live.has(config.cart):
+		if not send_to(config.cart,destination):
+			order_feedback = "Обоз не знайшов шляху до цієї точки."
+			return false
 		pending.clear()
+		order_feedback = "Обоз вирушив" if cart.moving else "Обоз уже на місці"
 		return true
 	var messenger: World.Group = world.groups[config.courier]
-	if messenger.position.distance_to(lord)>config.message_range: return false
-	if not knowledge.has(config.cart): return false
-	if not send_to(config.courier,knowledge[config.cart].position): return false
+	if messenger.position.distance_to(lord)>config.message_range:
+		order_feedback = "Посильний надто далеко, щоб прийняти наказ."
+		return false
+	if not knowledge.has(config.cart):
+		order_feedback = "Місце обозу невідоме."
+		return false
+	if not send_to(config.courier,knowledge[config.cart].position):
+		order_feedback = "Посильний не знайшов шляху до останнього відомого місця обозу."
+		return false
 	pending = {"target":destination,"stage":"out"}
+	order_feedback = "Посильний везе наказ до обозу"
 	return true
 
 func update_routes() -> void:
@@ -97,11 +113,19 @@ func advance(seconds: int) -> void:
 		if pending.stage=="out":
 			if messenger.position.distance_to(cart.position)<=config.message_range:
 				pending.delivered = send_to(config.cart,pending.target)
+				pending.at_destination = pending.delivered and not cart.moving
 				pending.stage = "return"
 				send_to(config.courier,lord.position)
 			elif not messenger.moving and sight.sees(messenger.position,cart.position,world.phase()):
 				send_to(config.courier,cart.position)
 		elif messenger.position.distance_to(lord.position)<=config.message_range:
+			if not pending.get("delivered",false):
+				order_feedback = "Посильний повернувся: обоз не знайшов прохідного маршруту до вказаної точки."
+			elif pending.get("at_destination",false):
+				order_feedback = "Посильний повернувся: на момент передачі наказу обоз уже був на місці."
+			else:
+				order_feedback = "Посильний повернувся: обоз вирушив до вказаної точки."
+			report_number += 1
 			pending.clear()
 		elif not messenger.moving: send_to(config.courier,lord.position)
 
@@ -122,7 +146,7 @@ func snapshot() -> Dictionary:
 		for key in ["position","origin","target","path","times","departed_at","due_at","order","moving"]:
 			row[key] = world.groups[id].get(key)
 		groups[id] = row
-	return {"version":1,"groups":groups,"time":world.time_seconds,"sequence":world._next_order,"arrivals":world.arrivals.duplicate(true),"gates":map.gates.duplicate(),"memory":knowledge.duplicate(true),"message":pending.duplicate(true),"reports":reports.duplicate(true)}
+	return {"version":1,"groups":groups,"time":world.time_seconds,"sequence":world._next_order,"arrivals":world.arrivals.duplicate(true),"gates":map.gates.duplicate(),"memory":knowledge.duplicate(true),"order_feedback":order_feedback,"message":pending.duplicate(true),"reports":reports.duplicate(true)}
 
 func restore(s: Variant) -> bool:
 	if not s is Dictionary or s.get("version")!=1: return false
@@ -147,6 +171,7 @@ func restore(s: Variant) -> bool:
 	for id in map.gates: map.set_gate(id,s.gates[id])
 	knowledge = s.memory.duplicate(true)
 	pending = s.message.duplicate(true)
+	order_feedback = s.get("order_feedback","")
 	for id in reports: reports[id] = s.get("reports",{}).get(id,{}).duplicate(true)
 	observe()
 	revision += 1

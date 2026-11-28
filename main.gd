@@ -68,7 +68,7 @@ func load_game() -> void:
 	if file != null and campaign.restore(file.get_var()):
 		last_fog = Vector2.INF
 		remainder = 0
-		notice = "Партію відновлено"
+		notice = "Партію відновлено. "+campaign.order_feedback
 	else: notice = "Немає придатного збереження"
 	_refresh()
 
@@ -228,7 +228,7 @@ func _map_input(event: InputEvent) -> void:
 
 func order(target: Vector2) -> bool:
 	var ok := campaign.issue_cart(target) if action=="order" else campaign.send_to(focus_id,target)
-	notice = ("Наказ прийнято" if ok else "Ця точка недоступна або посильний далеко")
+	notice = campaign.order_feedback if action=="order" else ("Наказ прийнято" if ok else "Ця точка недоступна для феодала")
 	_refresh()
 	return ok
 
@@ -267,7 +267,9 @@ func _process(delta: float) -> void:
 	remainder -= elapsed
 	var convoy: World.Group = world.groups[CART]
 	var before := convoy.position
+	var last_report := campaign.report_number
 	campaign.advance(elapsed)
+	if last_report!=campaign.report_number: notice = campaign.order_feedback
 	if before != convoy.position:
 		if absf(before.x-convoy.position.x)>0.001: cart.flip_h = before.x>convoy.position.x
 		wheel_angle = fmod(wheel_angle+before.distance_to(convoy.position)*0.12,TAU)
@@ -307,4 +309,4 @@ func _refresh() -> void:
 	$Bar/Clock.text = "День %d · %02d:%02d:%02d · %s" % [1+int((world.time_seconds+21600)/86400),int(t/3600),int(t/60)%60,t%60,PHASES[phase]]
 	$Bar/Speed.text = "Час ×%d" % int(valley.data.rates[rate_index])
 	$Bar/Bridge.text = "Змінити переправу"
-	$Status.text = "%s · Огляд %d м · %s" % [definitions[focus_id].name,roundi(campaign.sight.radius(lord,phase)),notice]
+	$Status.text = "%s · Огляд феодала %d м · %s" % [definitions[focus_id].name,roundi(campaign.sight.radius(lord,phase)),notice]
