@@ -19,13 +19,15 @@ func setup(map) -> void:
 				need+=float(t.people[k])*float(rules.needs[rules.classes.keys()[k]][j])/96.0
 			t.demand[good]=need
 			t.stocks[good]=need*(8 if good in t.sites else 1.2)
-		carts.append({"home":i,"at":i,"dest":-1,"p":geo.pos(t.p),"node":geo.idx(t.p),"path":PackedInt64Array(),"next":0,"reports":{},"good":"","load":0.0,"probe":-1,"recheck":0,"status":"На ринку"})
+		carts.append({"home":i,"at":i,"dest":-1,"p":geo.pos(t.p),"node":geo.idx(t.p),"path":PackedInt64Array(),"next":0,"reports":{},"good":"","load":0.0,"probe":-1,"scout_cursor":i,"recheck":0,"status":"На ринку"})
 	for cart in carts: dispatch(cart)
 
 func dispatch(cart: Dictionary) -> void:
 	var town: Dictionary=geo.towns[cart.at]
 	var best:=0.0
 	var candidate: Dictionary={}
+	var delayed: Dictionary={}
+	var delayed_score:=0.0
 	for i in geo.towns.size():
 		if i==cart.at: continue
 		var buyer: Dictionary=geo.towns[i]
@@ -39,9 +41,14 @@ func dispatch(cart: Dictionary) -> void:
 			var score:=amount/maxf(1,geo.pos(town.p).distance_to(geo.pos(buyer.p)))
 			if score<=best: continue
 			var route: PackedInt64Array=geo.route(cart.node,geo.idx(buyer.p),cart.reports)
-			if route.size()<2: continue
+			if route.size()<2:
+				if score>delayed_score and not cart.reports.is_empty() and geo.route(cart.node,geo.idx(buyer.p),{}).size()>1:
+					delayed_score=score
+					delayed={"dest":i,"good":good,"amount":amount,"route":PackedInt64Array()}
+				continue
 			best=score
 			candidate={"dest":i,"good":good,"amount":amount,"route":route}
+	if candidate.is_empty(): candidate=delayed
 	if candidate.is_empty(): return
 	cart.dest=candidate.dest
 	cart.good=candidate.good
@@ -49,7 +56,7 @@ func dispatch(cart: Dictionary) -> void:
 	town.stocks[cart.good]-=cart.load
 	cart.path=candidate.route
 	cart.next=1
-	cart.status="До "+str(geo.towns[cart.dest].name)
+	cart.status="Очікує звісток" if cart.path.is_empty() else "До "+str(geo.towns[cart.dest].name)
 
 func economy() -> void:
 	for t in geo.towns:
@@ -82,7 +89,9 @@ func scout(cart: Dictionary) -> void:
 		if cart.reports[bridge].open: continue
 		choices.append(bridge)
 	if choices.is_empty(): return
-	var p: Vector2i=choices[(time/150+int(cart.home))%choices.size()]
+	var cursor: int=cart.get("scout_cursor",cart.home)
+	var p: Vector2i=choices[cursor%choices.size()]
+	cart.scout_cursor=cursor+1
 	for id in geo.graph.get_point_connections(geo.idx(p)):
 		var route: PackedInt64Array=geo.route(cart.node,id,cart.reports)
 		if route.size()>0:
