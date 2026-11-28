@@ -50,5 +50,5 @@ jobs:
           if (Select-String "$env:RUNNER_TEMP/game.log" -Pattern 'SCRIPT ERROR|^ERROR:') { throw 'Startup log contains errors' }
       - uses: actions/upload-artifact@v4
         with:
-          name: MiddleAge-map-editor-windows-x64
+          name: MiddleAge-campaign-windows-x64
           path: build/

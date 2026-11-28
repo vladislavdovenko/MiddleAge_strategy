@@ -1,5 +1,6 @@
 extends Node2D
 
+var known_gates := {}
 var valley
 var detailed := false
 var paper := Color("#e0c995")
@@ -48,30 +49,17 @@ func _draw() -> void:
 				draw_line(spot-Vector2(3,0),spot+Vector2(3,0),ink,0.7,true)
 			else: draw_polyline(shape,ink,0.9,true)
 		draw_string(ThemeDB.fallback_font,r.position+Vector2(4,15),info.label,HORIZONTAL_ALIGNMENT_LEFT,int(r.size.x)-6,11,ink)
-	draw_colored_polygon(valley.river,Color("#83a99e"))
-	for bank in [valley.left,valley.right]:
-		draw_polyline(bank,Color("#546f63"),2,true)
-	for i in 165:
-		var y := rng.randf_range(2,valley.bounds.end.y-2)
-		var x: float = valley.bank_x(y)+rng.randf_range(4,50)
-		draw_line(Vector2(x,y),Vector2(x+rng.randf_range(3,9),y-1),Color("#afc8b2"),1,true)
-	var y: float = valley.road_y
-	var bx: float = valley.bridge.position.x
-	var ex: float = valley.bridge.end.x
-	for ends in [[0,bx],[ex,valley.bounds.end.x]]:
-		draw_rect(Rect2(ends[0],y-valley.data.road_half_height,ends[1]-ends[0],valley.data.road_half_height*2),Color("#ceb087"))
-		for off in [-6,6]:
-			draw_line(Vector2(ends[0],y+off),Vector2(ends[1],y+off),Color("#ad8e66"),1,true)
-	draw_rect(valley.bridge,Color("#af8253"))
-	if not detailed:
-		draw_arc(Vector2((bx+ex)*0.5,y+6),12,PI,TAU,18,Color("#705138"),3,true)
-	if detailed:
-		for i in range(int(bx),int(ex),5):
-			draw_line(Vector2(i,y-13),Vector2(i+1,y+13),ink,1,true)
-	for off in [-13,13]:
-		draw_line(Vector2(bx-4,y+off),Vector2(ex+4,y+off),ink,2,true)
-		for x in [bx,ex]: draw_circle(Vector2(x,y+off),2.3,ink)
-	if not valley.bridge_open:
-		draw_line(Vector2(bx,y-12),Vector2(bx,y+12),Color("#963c30"),5,true)
-	for item in [[Vector2(85,192),"Вільшани"],[Vector2(728,202),"Млинів"],[Vector2(458,356),"Рін"]]:
-		draw_string(ThemeDB.fallback_font,item[0],item[1],HORIZONTAL_ALIGNMENT_LEFT,-1,13,ink)
+	for water in valley.waterways:
+		draw_colored_polygon(water,Color("#83a99e"))
+		draw_polyline(water,Color("#546f63"),2,true)
+	for strip in valley.roads:
+		draw_colored_polygon(strip,Color("#ceb087"))
+	for id in valley.crossings:
+		var r: Rect2 = valley.crossings[id]
+		draw_rect(r,Color("#af8253"))
+		for x in range(int(r.position.x),int(r.end.x),5):
+			draw_line(Vector2(x,r.position.y),Vector2(x+1,r.end.y),ink,1,true)
+		if known_gates.has(id) and not known_gates[id]:
+			draw_line(r.position,Vector2(r.position.x,r.end.y),Color("#963c30"),5,true)
+	for item in valley.data.labels:
+		draw_string(ThemeDB.fallback_font,Vector2(item[0],item[1]),item[2],HORIZONTAL_ALIGNMENT_LEFT,-1,13,ink)

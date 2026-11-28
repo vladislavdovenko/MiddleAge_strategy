@@ -5,7 +5,7 @@ var brush := OptionButton.new()
 var first_corner := Vector2.INF
 var occupied := Vector2.INF
 signal feedback(message: String)
-const Objects = preload("res://editor/objects.gd")
+const Objects = preload("res://map/objects.gd")
 var objects: Objects
 var names: Dictionary
 var selected: Sprite2D

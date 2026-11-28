@@ -1,0 +1,134 @@
+{
+ "lord": "lord",
+ "cart": "cart-01",
+ "courier": "courier",
+ "message_range": 38,
+ "actors": [
+  {
+   "id": "lord",
+   "name": "Феодал",
+   "pos": [
+    109,
+    245
+   ],
+   "speed": 3.5,
+   "asset": "lord",
+   "scale": 0.85
+  },
+  {
+   "id": "cart-01",
+   "name": "Обоз",
+   "pos": [
+    115,
+    265
+   ],
+   "speed": 2,
+   "asset": "cart",
+   "scale": 0.18
+  },
+  {
+   "id": "courier",
+   "name": "Посильний",
+   "pos": [
+    118,
+    241
+   ],
+   "speed": 5.3,
+   "asset": "courier",
+   "scale": 0.75
+  }
+ ],
+ "sight": {
+  "range": 180,
+  "forest": 49,
+  "height_gain": 0.012,
+  "step": 8,
+  "eye": 2,
+  "target": 2,
+  "phases": [
+   {
+    "color": "#ffddbd",
+    "range": 0.81
+   },
+   {
+    "color": "#ffffff",
+    "range": 1
+   },
+   {
+    "color": "#e6ae9b",
+    "range": 0.66
+   },
+   {
+    "color": "#8592ba",
+    "range": 0.38
+   }
+  ],
+  "hills": [
+   [
+    290,
+    160,
+    110,
+    90,
+    34
+   ],
+   [
+    1070,
+    380,
+    180,
+    155,
+    60
+   ],
+   [
+    820,
+    825,
+    110,
+    170,
+    45
+   ]
+  ],
+  "blockers": {
+   "oak": [
+    8,
+    9
+   ],
+   "spire": [
+    5,
+    10
+   ],
+   "apple": [
+    5,
+    6
+   ],
+   "cottage": [
+    12,
+    8
+   ],
+   "manor": [
+    18,
+    14
+   ]
+  }
+ },
+ "sites": [
+  {
+   "id": "watch",
+   "name": "Сторожовий пост",
+   "asset": "manor",
+   "pos": [
+    335,
+    224
+   ],
+   "scale": 0.45
+  },
+  {
+   "id": "camp",
+   "name": "Табір біля південної переправи",
+   "asset": "cottage",
+   "pos": [
+    600,
+    606
+   ],
+   "scale": 0.65
+  }
+ ]
+}

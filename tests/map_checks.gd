@@ -29,10 +29,13 @@ func run() -> void:
 	for i in range(1,curved.points.size()):
 		for k in 21:
 			check(v.walkable(curved.points[i-1].lerp(curved.points[i],k/20.0)),"route stays on land or deck")
-	v.bridge_open = false
+	v.set_gate("mill",false)
+	var alternate := v.route(a,b,2)
+	check(not alternate.is_empty() and alternate.times[-1]>road.times[-1],"southern crossing detour")
+	v.set_gate("south",false)
 	check(v.route(a,b,2).is_empty(),"closed crossing")
 	check(not v.route(a,Vector2(240,380),2).is_empty(),"same bank still reachable")
-	v.bridge_open = true
+	v.set_gate("mill",true)
 	ui.order(b)
 	var previous = ui.group
 	ui.world.advance(220)
@@ -46,15 +49,15 @@ func run() -> void:
 	ui._process(9)
 	check(ui.world.time_seconds==clock,"paused clock")
 	ui.get_node("Bar/Pause").pressed.emit()
-	ui._bridge()
-	check(not v.bridge_open,"toggle closure")
+	ui.campaign.toggle_gate("mill")
+	check(not v.gates.mill,"toggle closure")
 	ui.order(a)
 	check("недоступна" in ui.notice,"unreachable click gives feedback")
-	ui._bridge()
+	ui.campaign.toggle_gate("mill")
 	ui.order(a)
-	ui._bridge()
+	ui.campaign.toggle_gate("mill")
 	check(not ui.group.moving,"closure stops outstanding cross-bank order")
-	ui._bridge()
+	ui.campaign.toggle_gate("mill")
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.pressed = true
@@ -65,6 +68,44 @@ func run() -> void:
 	ui.world.advance(6500-ui.world.time_seconds)
 	ui._refresh()
 	check("07:48:20" in ui.get_node("Bar/Clock").text,"clock at 6500 seconds")
+	var campaign = ui.campaign
+	var sight = campaign.sight
+	var grass := Vector2(1500,710)
+	check(sight.radius(grass,1)>sight.radius(grass,3),"night sight contracts")
+	check(sight.radius(Vector2(245,150),1)<sight.radius(grass,1),"forest sight")
+	check(sight.height(Vector2(820,825))>sight.height(grass) and sight.radius(Vector2(820,825),1)>sight.radius(grass,1),"elevation improves range")
+	var backups: Array = sight.obstacles.duplicate()
+	sight.obstacles = [[grass+Vector2(15,0),5.0,12.0]]
+	check(not sight.sees(grass,grass+Vector2(30,0),1),"object interrupts sight")
+	sight.obstacles = backups
+	var saved = campaign.snapshot()
+	var lord = ui.world.groups["lord"]
+	lord.position = v.crossings.mill.get_center()+Vector2(-15,0)
+	campaign.observe()
+	check(campaign.live.has("mill"),"bridge visible nearby")
+	lord.position = grass
+	campaign.observe()
+	v.set_gate("mill",false)
+	campaign.observe()
+	check(not campaign.live.has("mill") and campaign.knowledge.mill.state,"bridge report remains stale")
+	lord.position = v.crossings.mill.get_center()+Vector2(-15,0)
+	campaign.observe()
+	check(not campaign.knowledge.mill.state,"bridge state reacquired")
+	check(campaign.restore(saved),"restore campaign")
+	lord.position = Vector2(140,265)
+	ui.world.groups["courier"].position = lord.position
+	ui.world.groups["cart-01"].position = Vector2(270,265)
+	campaign.observe()
+	check(campaign.issue_cart(Vector2(375,265)) and not campaign.pending.is_empty(),"send messenger")
+	campaign.advance(3)
+	var travelling = campaign.snapshot()
+	campaign.advance(120)
+	var finish = campaign.snapshot()
+	check(campaign.pending.is_empty() and ui.world.groups["cart-01"].position.distance_to(Vector2(375,265))<1,"order delivered")
+	check(campaign.restore(travelling),"restore en route")
+	campaign.advance(120)
+	check(campaign.snapshot()==finish,"restored campaign follows same timeline")
+	campaign.restore(saved)
 	var editor = ui.get_node("Tools")
 	ui.get_node("Bar/Editor").button_pressed = true
 	var t_before: int = ui.world.time_seconds
@@ -120,7 +161,8 @@ func run() -> void:
 	ui.set_zoom(false,new_tree.position)
 	if "--preview" in OS.get_cmdline_user_args():
 		for side in [-1,1]:
-			ui.group.position = new_tree.position+Vector2(0,4*side)
+			ui.world.groups["lord"].position = new_tree.position+Vector2(-47,4)
+			ui.world.groups["cart-01"].position = new_tree.position+Vector2(0,4*side)
 			ui._refresh()
 			await process_frame
 			var natural := await crop_at(ui,new_tree.position)
