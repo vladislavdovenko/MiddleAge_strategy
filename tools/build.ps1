@@ -8,6 +8,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Project import failed" }
     & $Godot --headless --script res://tests/run.gd
     if ($LASTEXITCODE -ne 0) { throw "Simulation checks failed" }
+    & $Godot --headless --script res://tests/map_checks.gd
+    if ($LASTEXITCODE -ne 0) { throw "Map checks failed" }
     New-Item -ItemType Directory -Force build | Out-Null
     & $Godot --headless --export-release "Windows Desktop" build/MiddleAge.exe
     if ($LASTEXITCODE -ne 0) { throw "Windows export failed" }
