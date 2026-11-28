@@ -114,6 +114,9 @@ func run() -> void:
 		for j in 21: check(v.walkable(detour.points[i-1].lerp(detour.points[i],j/20.0)),"route avoids deep marsh")
 	ui.set_zoom(false,Vector2(1810,960))
 	check(ui.camera.position.x>1000 and ui.camera.position.y>650,"camera reaches far corner")
+	# Compare against forced layers in an empty patch so unrelated foreground sprites
+	# cannot change the reference image when the cart changes its layer.
+	new_tree.position = Vector2(1450,670)
 	ui.set_zoom(false,new_tree.position)
 	if "--preview" in OS.get_cmdline_user_args():
 		for side in [-1,1]:
