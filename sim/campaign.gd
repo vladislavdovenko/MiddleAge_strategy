@@ -9,6 +9,8 @@ var sight := Sight.new()
 var knowledge := {}
 var pending := {}
 var live := {}
+var navigators := {}
+var reports := {}
 var locations := {}
 var revision := 0
 
@@ -19,6 +21,8 @@ func setup(sim,geography,definition: Dictionary) -> void:
 	sight.setup(config.sight,map)
 	for actor in config.actors:
 		world.add_group(actor.id,Vector2(actor.pos[0],actor.pos[1]),actor.speed)
+		navigators[actor.id] = preload("res://map/valley.gd").new()
+		reports[actor.id] = {}
 	for site in config.sites: locations[site.id] = Vector2(site.pos[0],site.pos[1])
 	for id in map.crossings: locations[id] = map.crossings[id].get_center()
 
@@ -37,7 +41,12 @@ func observe() -> void:
 
 func send_to(id: String,destination: Vector2) -> bool:
 	var g: World.Group = world.groups[id]
-	var route: Dictionary = map.route(g.position,destination,g.speed_mps)
+	var navigator = navigators[id]
+	navigator.data.zones = map.data.zones
+	for crossing in map.crossings:
+		var believed: bool = reports[id].get(crossing,true)
+		if navigator.gates[crossing]!=believed: navigator.set_gate(crossing,believed)
+	var route: Dictionary = navigator.route(g.position,destination,g.speed_mps)
 	if route.is_empty(): return false
 	var success: bool = world.follow_route(id,route.points,route.times)
 	if success and id==config.lord and pending.is_empty():
@@ -59,8 +68,24 @@ func issue_cart(destination: Vector2) -> bool:
 	pending = {"target":destination,"stage":"out"}
 	return true
 
+func update_routes() -> void:
+	for id in world.groups:
+		var g: World.Group = world.groups[id]
+		var changed := false
+		for gate in map.crossings:
+			var deck: Rect2 = map.crossings[gate]
+			var nearest := g.position.clamp(deck.position,deck.end)
+			if g.position.distance_to(nearest)>g.speed_mps+2 and not sight.sees(g.position,deck.get_center(),world.phase()): continue
+			if reports[id].get(gate,true)!=map.gates[gate]: changed = true
+			reports[id][gate] = map.gates[gate]
+		if changed and g.moving and not send_to(id,g.target): g.moving = false
+
+func invalidate_terrain() -> void:
+	for nav in navigators.values(): nav.graph = null
+
 func advance(seconds: int) -> void:
 	for i in seconds:
+		update_routes()
 		world.advance(1)
 		for change in config.get("events",[]):
 			if world.time_seconds==change.time and map.gates[change.gate]!=change.open: toggle_gate(change.gate)
@@ -85,9 +110,7 @@ func toggle_gate(id: String) -> bool:
 	for g in world.groups.values():
 		if map.gates[id] and map.crossings[id].has_point(g.position): return false
 	map.set_gate(id,not map.gates[id])
-	for key in world.groups:
-		var g: World.Group = world.groups[key]
-		if g.moving and not send_to(key,g.target): g.moving = false
+	update_routes()
 	observe()
 	revision += 1
 	return true
@@ -99,7 +122,7 @@ func snapshot() -> Dictionary:
 		for key in ["position","origin","target","path","times","departed_at","due_at","order","moving"]:
 			row[key] = world.groups[id].get(key)
 		groups[id] = row
-	return {"version":1,"groups":groups,"time":world.time_seconds,"sequence":world._next_order,"arrivals":world.arrivals.duplicate(true),"gates":map.gates.duplicate(),"memory":knowledge.duplicate(true),"message":pending.duplicate(true)}
+	return {"version":1,"groups":groups,"time":world.time_seconds,"sequence":world._next_order,"arrivals":world.arrivals.duplicate(true),"gates":map.gates.duplicate(),"memory":knowledge.duplicate(true),"message":pending.duplicate(true),"reports":reports.duplicate(true)}
 
 func restore(s: Variant) -> bool:
 	if not s is Dictionary or s.get("version")!=1: return false
@@ -124,6 +147,7 @@ func restore(s: Variant) -> bool:
 	for id in map.gates: map.set_gate(id,s.gates[id])
 	knowledge = s.memory.duplicate(true)
 	pending = s.message.duplicate(true)
+	for id in reports: reports[id] = s.get("reports",{}).get(id,{}).duplicate(true)
 	observe()
 	revision += 1
 	return true

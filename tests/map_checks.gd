@@ -51,12 +51,16 @@ func run() -> void:
 	ui.get_node("Bar/Pause").pressed.emit()
 	ui.campaign.toggle_gate("mill")
 	check(not v.gates.mill,"toggle closure")
-	ui.order(a)
+	ui.order(Vector2(810,380))
 	check("недоступна" in ui.notice,"unreachable click gives feedback")
 	ui.campaign.toggle_gate("mill")
 	ui.order(a)
 	ui.campaign.toggle_gate("mill")
-	check(not ui.group.moving,"closure stops outstanding cross-bank order")
+	check(ui.group.moving,"unseen closure does not cancel a distant order")
+	ui.group.position = Vector2(535,265)
+	ui.campaign.reports["lord"]["south"] = false
+	ui.campaign.update_routes()
+	check(not ui.group.moving,"locally observed closure stops blocked order")
 	ui.campaign.toggle_gate("mill")
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT

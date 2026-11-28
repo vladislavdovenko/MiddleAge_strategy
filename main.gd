@@ -95,6 +95,7 @@ func _ready() -> void:
 	$Tools.setup(objects,valley.data.asset_labels)
 	$Tools.surfaces_changed.connect(func():
 		valley.graph = null
+		campaign.invalidate_terrain()
 		terrain_changed = true
 		landscape.queue_redraw()
 		notice = "Місцевість змінено"
