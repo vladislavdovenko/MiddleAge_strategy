@@ -12,3 +12,4 @@ window/stretch/mode="canvas_items"
 
 [rendering]
 renderer/rendering_method="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.17, 0.20, 0.17, 1)

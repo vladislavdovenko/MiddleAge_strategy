@@ -24,6 +24,16 @@ var camera: Camera2D
 var group: World.Group
 
 func _ready() -> void:
+	for button in $Bar.get_children():
+		if button is Button:
+			var panel := StyleBoxFlat.new()
+			panel.bg_color = Color("#354338")
+			panel.border_color = Color("#96845e")
+			panel.set_border_width_all(1)
+			panel.content_margin_left = 9
+			panel.content_margin_right = 9
+			button.add_theme_stylebox_override("normal", panel)
+			button.add_theme_color_override("font_color", Color("#f3e8cd"))
 	var speeds := Types.load_speeds()
 	if not speeds.has("cart"):
 		get_tree().quit(1)
@@ -49,7 +59,7 @@ func _ready() -> void:
 	cart.material = wheel
 	$Frame/View/Land.add_child(cart)
 	path.width = 2.0
-	path.default_color = Color("#854b39b0")
+	path.default_color = Color("#8d4834c0")
 	path.antialiased = true
 	path.z_index = 3
 	$Frame/View/Land.add_child(path)

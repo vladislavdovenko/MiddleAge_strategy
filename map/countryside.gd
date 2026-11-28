@@ -13,6 +13,12 @@ func cottage(p: Vector2, scale_factor: float) -> void:
 	polygon([Vector2(-13,0),Vector2(12,0),Vector2(12,-15),Vector2(-13,-15)],"#d4b784")
 	polygon([Vector2(-17,-13),Vector2(-6,-26),Vector2(8,-26),Vector2(16,-13)],"#915739")
 	draw_line(Vector2(-17,-13),Vector2(-6,-26),ink,1.6,true)
+	for k in [-11,-2,10]:
+		draw_line(Vector2(k,0),Vector2(k,-14),Color("#806343"),1,true)
+	draw_line(Vector2(-11,-3),Vector2(-3,-14),Color("#806343"),1,true)
+	for k in 6:
+		draw_line(Vector2(-12+k*4,-15),Vector2(-5+k*3,-23),Color("#b17b4d"),0.9,true)
+	draw_line(Vector2(-13,0),Vector2(12,0),ink,1,true)
 	draw_rect(Rect2(-1,-9,5,9),ink)
 	draw_rect(Rect2(-8,-10,3,4),Color("#5c6357"))
 	draw_set_transform(Vector2.ZERO)
@@ -24,7 +30,7 @@ func _draw() -> void:
 	draw_rect(valley.bounds,paper)
 	for i in 1700:
 		var p := Vector2(rng.randf_range(0,960),rng.randf_range(0,540))
-		draw_circle(p,rng.randf_range(2,12),Color(0.44,0.40,0.22,0.025))
+		draw_circle(p,rng.randf_range(1,7),Color(0.44,0.40,0.22,0.014))
 	# Short contours gather into ridges, leaving the road and floodplain open.
 	for ridge: Vector2 in [Vector2(115,65),Vector2(312,155),Vector2(610,78),Vector2(785,356),Vector2(279,478)]:
 		for j in 4:
